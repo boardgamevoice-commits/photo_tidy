@@ -14,6 +14,11 @@ struct SessionCompleteView: View {
     @State private var showingAd = false
     @State private var animateStats = false
     
+    // 删除进度状态
+    @State private var isDeletingPhotos = false
+    @State private var deleteProgress: Int = 0
+    @State private var deleteTotalCount: Int = 0
+    
     // MARK: - Body
     
     var body: some View {
@@ -53,6 +58,12 @@ struct SessionCompleteView: View {
                 }
             }
             .navigationBarHidden(true)
+            .overlay {
+                // 删除进度覆盖层
+                if isDeletingPhotos {
+                    deletionProgressOverlay
+                }
+            }
             .background(
                 LinearGradient(
                     colors: [
@@ -168,6 +179,15 @@ struct SessionCompleteView: View {
                         value: "\(viewModel.pendingDeletionCount) 张",
                         icon: "trash.circle"
                     )
+                    
+                    // 存储空间估算
+                    if viewModel.estimatedStorageToFree > 0 {
+                        DetailRow(
+                            title: "预计释放空间",
+                            value: viewModel.formattedStorageToFree,
+                            icon: "arrow.down.circle"
+                        )
+                    }
                 }
                 
                 DetailRow(
@@ -225,8 +245,90 @@ struct SessionCompleteView: View {
                 .cornerRadius(15)
                 .shadow(color: (viewModel.pendingDeletionCount > 0 ? Color.orange : Color.blue).opacity(0.3), radius: 10, x: 0, y: 5)
             }
-            .disabled(showingAd)
+            .disabled(showingAd || isDeletingPhotos)
         }
+    }
+    
+    // MARK: - Deletion Progress Overlay
+    
+    private var deletionProgressOverlay: some View {
+        ZStack {
+            // 半透明背景
+            Color.black.opacity(0.6)
+                .ignoresSafeArea()
+            
+            // 进度卡片
+            VStack(spacing: 25) {
+                // 图标
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [.orange, .red],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 80, height: 80)
+                    
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 35))
+                        .foregroundColor(.white)
+                }
+                
+                // 标题
+                Text("正在删除照片")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                
+                // 进度信息
+                VStack(spacing: 12) {
+                    Text("\(deleteProgress) / \(deleteTotalCount)")
+                        .font(.system(size: 48, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                    
+                    // 进度条
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            // 背景
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.white.opacity(0.3))
+                            
+                            // 进度
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.orange, .red],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: geometry.size.width * CGFloat(deleteProgress) / CGFloat(max(deleteTotalCount, 1)))
+                        }
+                    }
+                    .frame(height: 20)
+                    
+                    // 百分比
+                    Text("\(Int((Double(deleteProgress) / Double(max(deleteTotalCount, 1))) * 100))%")
+                        .font(.title3)
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                
+                // 提示文字
+                Text("请稍候，正在处理...")
+                    .font(.subheadline)
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            .padding(40)
+            .background(
+                RoundedRectangle(cornerRadius: 25)
+                    .fill(Color(.systemBackground).opacity(0.95))
+                    .shadow(color: .black.opacity(0.3), radius: 30, x: 0, y: 15)
+            )
+            .padding(30)
+        }
+        .transition(.opacity)
     }
     
     // MARK: - Computed Properties
@@ -247,34 +349,57 @@ struct SessionCompleteView: View {
         // 先执行待删除照片的批量删除
         print("准备执行批量删除...")
         
-        viewModel.executePendingDeletions { [self] success in
-            if success {
-                print("批量删除完成")
-            } else {
-                print("批量删除失败，但继续流程")
-            }
-            
-            // 删除完成后，检查是否需要显示广告
-            if viewModel.shouldShowAd() {
-                print("达到广告阈值，准备显示广告...")
-                showingAd = true
-                
-                // 显示广告
-                AdManager.shared.showInterstitialAd { [self] in
-                    print("广告已关闭，准备开始新会话")
-                    showingAd = false
-                    
-                    // 广告关闭后，重置会话并返回设置界面
-                    DispatchQueue.main.async {
-                        viewModel.resetSession()
-                    }
-                }
-            } else {
-                // 不需要广告，直接重置会话
-                print("未达到广告阈值，直接开始新会话")
-                viewModel.resetSession()
+        // 显示删除进度
+        if viewModel.pendingDeletionCount > 0 {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                isDeletingPhotos = true
+                deleteProgress = 0
+                deleteTotalCount = viewModel.pendingDeletionCount
             }
         }
+        
+        viewModel.executePendingDeletions(
+            progressHandler: { current, total in
+                // 更新进度
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    self.deleteProgress = current
+                    self.deleteTotalCount = total
+                }
+            },
+            completion: { [self] success in
+                // 隐藏删除进度
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isDeletingPhotos = false
+                }
+                
+                if success {
+                    print("批量删除完成")
+                } else {
+                    print("批量删除失败，但继续流程")
+                }
+                
+                // 删除完成后，检查是否需要显示广告
+                if viewModel.shouldShowAd() {
+                    print("达到广告阈值，准备显示广告...")
+                    showingAd = true
+                    
+                    // 显示广告
+                    AdManager.shared.showInterstitialAd { [self] in
+                        print("广告已关闭，准备开始新会话")
+                        showingAd = false
+                        
+                        // 广告关闭后，重置会话并返回设置界面
+                        DispatchQueue.main.async {
+                            viewModel.resetSession()
+                        }
+                    }
+                } else {
+                    // 不需要广告，直接重置会话
+                    print("未达到广告阈值，直接开始新会话")
+                    viewModel.resetSession()
+                }
+            }
+        )
     }
 }
 

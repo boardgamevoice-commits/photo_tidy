@@ -40,10 +40,26 @@ struct ContentView: View {
             Button("确定") {
                 viewModel.errorMessage = nil
             }
+            // 如果是权限错误，提供前往设置的选项
+            if let error = viewModel.errorMessage, error.contains("权限") {
+                Button("前往设置") {
+                    openSettings()
+                    viewModel.errorMessage = nil
+                }
+            }
         } message: {
             if let error = viewModel.errorMessage {
                 Text(error)
             }
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    /// 打开系统设置页面
+    private func openSettings() {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
         }
     }
     

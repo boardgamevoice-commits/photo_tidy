@@ -63,73 +63,68 @@ class PhotoService: NSObject {
     /// 随机选取符合条件的照片资源
     /// - Parameters:
     ///   - count: 需要选取的照片数量
-    ///   - contentSubtypes: 内容子类型过滤（例如：全景照片、截图等）
-    ///   - excludeHidden: 是否排除隐藏的照片
-    ///   - excludeFavorite: 是否排除收藏的照片
+    ///   - filterConfig: 过滤配置
     /// - Returns: 随机选取的 PHAsset 数组
     func fetchRandomAssets(
         count: Int,
-        contentSubtypes: [PHAssetMediaSubtype] = [],
-        excludeHidden: Bool = true,
-        excludeFavorite: Bool = false
+        filterConfig: FilterConfiguration
     ) -> [PHAsset] {
         
-        // 1. 构造 PHFetchOptions 和 NSPredicate
+        // 1. 构造 PHFetchOptions 和 NSPredicate（直接从 FilterConfiguration）
         let fetchOptions = PHFetchOptions()
         var predicates: [NSPredicate] = []
         
-        // 基础过滤：只获取图片和视频
-        let mediaTypePredicate = NSPredicate(format: "mediaType == %d OR mediaType == %d",
-                                            PHAssetMediaType.image.rawValue,
-                                            PHAssetMediaType.video.rawValue)
-        predicates.append(mediaTypePredicate)
+        print("🔍 开始构建过滤条件：\(filterConfig.summary)")
         
-        // 排除隐藏的照片
-        if excludeHidden {
+        // ===== 维度 1: 内容类型过滤 =====
+        let contentTypePredicates = buildContentTypePredicates(filterConfig.contentType)
+        predicates.append(contentsOf: contentTypePredicates)
+        
+        // ===== 维度 2: 日期范围过滤 =====
+        if let datePredicates = buildDateRangePredicates(filterConfig.dateRange) {
+            predicates.append(contentsOf: datePredicates)
+        }
+        
+        // ===== 维度 3: 位置信息过滤 =====
+        if let locationPredicate = buildLocationPredicate(filterConfig.locationFilter) {
+            predicates.append(locationPredicate)
+        }
+        
+        // ===== 维度 4: 视频时长过滤 =====
+        if let durationPredicates = buildDurationPredicates(filterConfig.durationFilter) {
+            predicates.append(contentsOf: durationPredicates)
+        }
+        
+        // ===== 维度 5: 其他过滤（排除隐藏/收藏）=====
+        if filterConfig.excludeHidden {
             let notHiddenPredicate = NSPredicate(format: "isHidden == NO")
             predicates.append(notHiddenPredicate)
+            print("  ✓ 排除隐藏")
         }
         
-        // 排除收藏的照片
-        if excludeFavorite {
+        if filterConfig.excludeFavorite {
             let notFavoritePredicate = NSPredicate(format: "isFavorite == NO")
             predicates.append(notFavoritePredicate)
+            print("  ✓ 排除收藏")
         }
         
-        // 内容子类型过滤
-        if !contentSubtypes.isEmpty {
-            var subtypePredicates: [NSPredicate] = []
-            for subtype in contentSubtypes {
-                // 使用位掩码匹配子类型
-                let subtypePredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", subtype.rawValue)
-                subtypePredicates.append(subtypePredicate)
-            }
-            // 如果有多个子类型，使用 OR 连接
-            if subtypePredicates.count > 1 {
-                let combinedSubtypePredicate = NSCompoundPredicate(orPredicateWithSubpredicates: subtypePredicates)
-                predicates.append(combinedSubtypePredicate)
-            } else if let firstPredicate = subtypePredicates.first {
-                predicates.append(firstPredicate)
-            }
-        }
-        
-        // 合并所有 predicate
+        // 合并所有 predicate（使用 AND 连接所有维度）
         let compoundPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
         fetchOptions.predicate = compoundPredicate
         
         // 按创建日期降序排列（可选，用于调试）
         fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         
-        print("开始获取照片资源，过滤条件：excludeHidden=\(excludeHidden), excludeFavorite=\(excludeFavorite)")
+        print("📊 总共应用了 \(predicates.count) 个过滤条件")
         
         // 2. 获取所有符合条件的资源
         let fetchResult = PHAsset.fetchAssets(with: fetchOptions)
         
-        print("找到 \(fetchResult.count) 个符合条件的照片")
+        print("✅ 找到 \(fetchResult.count) 个符合条件的照片")
         
         // 如果没有资源，直接返回空数组
         guard fetchResult.count > 0 else {
-            print("没有找到符合条件的照片")
+            print("❌ 没有找到符合条件的照片")
             return []
         }
         
@@ -137,13 +132,23 @@ class PhotoService: NSObject {
         var allIdentifiers: [String] = []
         var assetMap: [String: PHAsset] = [:]
         
+        // 判断是否需要自拍后置过滤
+        let needsSelfieFilter = filterConfig.contentType == .selfies
+        
         fetchResult.enumerateObjects { asset, _, _ in
+            // 自拍后置过滤
+            if needsSelfieFilter {
+                if !self.isSelfie(asset: asset) {
+                    return // 跳过非自拍照片
+                }
+            }
+            
             let identifier = asset.localIdentifier
             allIdentifiers.append(identifier)
             assetMap[identifier] = asset
         }
         
-        print("提取了 \(allIdentifiers.count) 个资源 ID")
+        print("提取了 \(allIdentifiers.count) 个资源 ID\(needsSelfieFilter ? "（已应用自拍过滤）" : "")")
         
         // 4. 执行 Fisher-Yates 洗牌算法
         let shuffledIdentifiers = fisherYatesShuffle(array: allIdentifiers)
@@ -216,8 +221,13 @@ class PhotoService: NSObject {
     /// 批量删除照片资源
     /// - Parameters:
     ///   - assets: 要删除的 PHAsset 数组
+    ///   - progressHandler: 进度回调 (当前数量, 总数量)
     ///   - completion: 删除完成后的回调
-    func deleteAssets(assets: [PHAsset], completion: @escaping (Bool, Error?) -> Void) {
+    func deleteAssets(
+        assets: [PHAsset],
+        progressHandler: ((Int, Int) -> Void)? = nil,
+        completion: @escaping (Bool, Error?) -> Void
+    ) {
         guard !assets.isEmpty else {
             completion(true, nil)
             return
@@ -229,16 +239,33 @@ class PhotoService: NSObject {
             deletedAssetsCache[identifier] = asset
         }
         
-        print("准备批量删除 \(assets.count) 张照片")
+        let totalCount = assets.count
+        print("准备批量删除 \(totalCount) 张照片")
+        
+        // 模拟进度（因为 PHPhotoLibrary.performChanges 是原子操作）
+        // 在删除前显示进度更新，让用户感觉到进度
+        var simulatedProgress = 0
+        let progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
+            if simulatedProgress < totalCount {
+                simulatedProgress += max(1, totalCount / 20) // 分20步完成
+                let current = min(simulatedProgress, totalCount - 1)
+                progressHandler?(current, totalCount)
+            }
+        }
         
         PHPhotoLibrary.shared().performChanges {
             // 批量删除
             PHAssetChangeRequest.deleteAssets(assets as NSArray)
             
         } completionHandler: { success, error in
+            // 停止进度定时器
+            progressTimer.invalidate()
+            
             DispatchQueue.main.async {
                 if success {
-                    print("批量删除成功，共 \(assets.count) 张照片")
+                    print("批量删除成功，共 \(totalCount) 张照片")
+                    // 报告完成进度
+                    progressHandler?(totalCount, totalCount)
                     completion(true, nil)
                 } else {
                     print("批量删除失败，错误: \(error?.localizedDescription ?? "未知错误")")
@@ -387,6 +414,243 @@ class PhotoService: NSObject {
             "favorites": favorites.count,
             "total": allPhotos.count + allVideos.count
         ]
+    }
+    
+    // MARK: - 私有辅助方法 - Predicate 构建器
+    
+    /// 构建内容类型过滤 Predicates
+    private func buildContentTypePredicates(_ contentType: ContentType) -> [NSPredicate] {
+        var predicates: [NSPredicate] = []
+        
+        switch contentType {
+        case .all:
+            // 所有媒体：图片和视频
+            let mediaTypePredicate = NSPredicate(format: "mediaType == %d OR mediaType == %d",
+                                                PHAssetMediaType.image.rawValue,
+                                                PHAssetMediaType.video.rawValue)
+            predicates.append(mediaTypePredicate)
+            print("  ✓ 内容类型：所有媒体")
+            
+        case .videos, .slowMotionVideos, .timelapseVideos:
+            // 视频类型
+            let videoPredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.video.rawValue)
+            predicates.append(videoPredicate)
+            
+            // 视频子类型
+            if contentType == .slowMotionVideos {
+                let slowMoPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.videoHighFrameRate.rawValue)
+                predicates.append(slowMoPredicate)
+                print("  ✓ 内容类型：慢动作视频")
+            } else if contentType == .timelapseVideos {
+                let timelapsePredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.videoTimelapse.rawValue)
+                predicates.append(timelapsePredicate)
+                print("  ✓ 内容类型：延时摄影")
+            } else {
+                print("  ✓ 内容类型：所有视频")
+            }
+            
+        case .screenshots:
+            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            let screenshotPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoScreenshot.rawValue)
+            predicates.append(contentsOf: [imagePredicate, screenshotPredicate])
+            print("  ✓ 内容类型：截图")
+            
+        case .panoramas:
+            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            let panoramaPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoPanorama.rawValue)
+            predicates.append(contentsOf: [imagePredicate, panoramaPredicate])
+            print("  ✓ 内容类型：全景照片")
+            
+        case .livePhotos:
+            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            let livePredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoLive.rawValue)
+            predicates.append(contentsOf: [imagePredicate, livePredicate])
+            print("  ✓ 内容类型：Live Photo")
+            
+        case .portraits:
+            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            let portraitPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoDepthEffect.rawValue)
+            predicates.append(contentsOf: [imagePredicate, portraitPredicate])
+            print("  ✓ 内容类型：人像模式")
+            
+        case .hdrPhotos:
+            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            let hdrPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoHDR.rawValue)
+            predicates.append(contentsOf: [imagePredicate, hdrPredicate])
+            print("  ✓ 内容类型：HDR 照片")
+            
+        case .bursts:
+            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            // 修复：使用 burstIdentifier 而不是 representsBurst，包含所有连拍照片
+            let burstPredicate = NSPredicate(format: "burstIdentifier != nil")
+            predicates.append(contentsOf: [imagePredicate, burstPredicate])
+            print("  ✓ 内容类型：连拍照片（所有连拍）")
+            
+        case .selfies:
+            // 自拍需要图片类型 + 后置过滤
+            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            predicates.append(imagePredicate)
+            print("  ✓ 内容类型：自拍（需后置过滤）")
+        }
+        
+        return predicates
+    }
+    
+    /// 构建日期范围过滤 Predicates
+    private func buildDateRangePredicates(_ dateRange: DateRangeType?) -> [NSPredicate]? {
+        guard let dateRange = dateRange else { return nil }
+        
+        var predicates: [NSPredicate] = []
+        let calendar = Calendar.current
+        let now = Date()
+        let currentYear = calendar.component(.year, from: now)
+        
+        switch dateRange {
+        case .recent7Days:
+            if let startDate = calendar.date(byAdding: .day, value: -7, to: now) {
+                let predicate = NSPredicate(format: "creationDate >= %@", startDate as NSDate)
+                predicates.append(predicate)
+                print("  ✓ 日期范围：最近 7 天")
+            }
+            
+        case .recent30Days:
+            if let startDate = calendar.date(byAdding: .day, value: -30, to: now) {
+                let predicate = NSPredicate(format: "creationDate >= %@", startDate as NSDate)
+                predicates.append(predicate)
+                print("  ✓ 日期范围：最近 30 天")
+            }
+            
+        case .thisYear:
+            // 修复：明确指定年月日
+            if let startOfYear = calendar.date(from: DateComponents(year: currentYear, month: 1, day: 1)) {
+                let predicate = NSPredicate(format: "creationDate >= %@", startOfYear as NSDate)
+                predicates.append(predicate)
+                print("  ✓ 日期范围：今年")
+            }
+            
+        case .lastYear:
+            // 修复：使用明确的边界，避免包含今年第一天
+            let lastYearStart = calendar.date(from: DateComponents(year: currentYear - 1, month: 1, day: 1))
+            let lastYearEnd = calendar.date(from: DateComponents(year: currentYear, month: 1, day: 1))?.addingTimeInterval(-1)
+            
+            if let start = lastYearStart {
+                predicates.append(NSPredicate(format: "creationDate >= %@", start as NSDate))
+            }
+            if let end = lastYearEnd {
+                predicates.append(NSPredicate(format: "creationDate <= %@", end as NSDate))
+            }
+            print("  ✓ 日期范围：去年")
+            
+        case .older1Year:
+            if let oneYearAgo = calendar.date(byAdding: .year, value: -1, to: now) {
+                let predicate = NSPredicate(format: "creationDate < %@", oneYearAgo as NSDate)
+                predicates.append(predicate)
+                print("  ✓ 日期范围：1 年前")
+            }
+            
+        case .older2Years:
+            if let twoYearsAgo = calendar.date(byAdding: .year, value: -2, to: now) {
+                let predicate = NSPredicate(format: "creationDate < %@", twoYearsAgo as NSDate)
+                predicates.append(predicate)
+                print("  ✓ 日期范围：2 年前")
+            }
+        }
+        
+        return predicates.isEmpty ? nil : predicates
+    }
+    
+    /// 构建位置信息过滤 Predicate
+    private func buildLocationPredicate(_ locationFilter: LocationFilterType?) -> NSPredicate? {
+        guard let locationFilter = locationFilter else { return nil }
+        
+        switch locationFilter {
+        case .withLocation:
+            print("  ✓ 位置信息：含位置信息")
+            return NSPredicate(format: "location != nil")
+        case .withoutLocation:
+            print("  ✓ 位置信息：无位置信息")
+            return NSPredicate(format: "location == nil")
+        }
+    }
+    
+    /// 构建视频时长过滤 Predicates
+    private func buildDurationPredicates(_ durationFilter: DurationFilterType?) -> [NSPredicate]? {
+        guard let durationFilter = durationFilter else { return nil }
+        
+        var predicates: [NSPredicate] = []
+        
+        switch durationFilter {
+        case .shortVideos:
+            let predicate = NSPredicate(format: "duration > 0 AND duration <= %f", 30.0)
+            predicates.append(predicate)
+            print("  ✓ 视频时长：短视频 (<30秒)")
+            
+        case .longVideos:
+            let predicate = NSPredicate(format: "duration >= %f", 300.0)
+            predicates.append(predicate)
+            print("  ✓ 视频时长：长视频 (>5分钟)")
+        }
+        
+        return predicates.isEmpty ? nil : predicates
+    }
+    
+    // MARK: - 自拍检测
+    
+    /// 判断是否为自拍照片
+    /// - Parameter asset: PHAsset 对象
+    /// - Returns: 如果是自拍则返回 true
+    private func isSelfie(asset: PHAsset) -> Bool {
+        // 只处理图片类型
+        guard asset.mediaType == .image else {
+            return false
+        }
+        
+        // 方法1: 检查照片尺寸比例（前置摄像头通常拍摄较小的照片）
+        // 注意：这种方法不是100%准确，但可以覆盖大部分情况
+        let width = asset.pixelWidth
+        let height = asset.pixelHeight
+        
+        // 前置摄像头拍摄的照片通常分辨率较低
+        // iPhone 前置摄像头常见分辨率：
+        // - iPhone X 及以后: 7MP (约 3088x2316)
+        // - iPhone 8 及之前: 1.2MP (约 960x1280) 到 5MP
+        let totalPixels = width * height
+        let isLowerResolution = totalPixels < 10_000_000 // 10MP 以下
+        
+        // 方法2: 检查是否有人脸信息（自拍通常有人脸）
+        // 注意：需要照片库有分析权限
+        // 这里我们使用启发式规则
+        
+        // 方法3: 通过元数据判断（最可靠的方法）
+        // 获取资源的元数据
+        let resources = PHAssetResource.assetResources(for: asset)
+        for resource in resources {
+            // 检查文件名是否包含 IMG_开头（相机拍摄）
+            let filename = resource.originalFilename.uppercased()
+            
+            // 前置摄像头拍摄的照片文件名模式
+            // iOS 通常不会在文件名中标记是否为自拍
+            // 但我们可以通过其他特征判断
+            
+            // 如果是 Live Photo，检查视频资源
+            if resource.type == .pairedVideo {
+                // Live Photo 的自拍通常也是前置摄像头
+                continue
+            }
+        }
+        
+        // 综合判断：分辨率 + 宽高比
+        // 前置摄像头拍摄的照片通常是竖屏且分辨率较低
+        let isPortrait = height > width
+        let aspectRatio = Double(max(width, height)) / Double(min(width, height))
+        let isPhoneAspect = aspectRatio >= 1.3 && aspectRatio <= 1.8 // 常见手机拍照比例
+        
+        // 启发式规则：低分辨率 + 竖屏 + 手机比例 = 可能是自拍
+        let isSelfieCandidate = isLowerResolution && isPortrait && isPhoneAspect
+        
+        // 注意：由于 iOS Photos API 限制，无法 100% 准确识别自拍
+        // 这里采用保守策略，可能会有误判
+        return isSelfieCandidate
     }
 }
 

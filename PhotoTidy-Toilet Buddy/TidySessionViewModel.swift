@@ -8,7 +8,9 @@
 import Foundation
 import SwiftUI
 import Photos
+import PhotosUI
 import Combine
+import AVFoundation
 
 /// 单张待审阅照片的数据模型
 struct TidyPhoto: Identifiable, Equatable {
@@ -43,11 +45,11 @@ class TidySessionViewModel: ObservableObject {
     /// 已保留的照片数量
     @Published var keptCount: Int = 0
     
-    /// 最后一张被删除的照片资源（用于撤销）
-    @Published var lastDeletedAsset: PHAsset?
+    /// 删除历史记录（用于多次撤销）
+    @Published private var deletionHistory: [(asset: PHAsset, index: Int)] = []
     
-    /// 最后一张被删除照片的索引（用于撤销后恢复位置）
-    @Published private var lastDeletedIndex: Int?
+    /// 最大撤销步数
+    private let maxUndoSteps: Int = 10
     
     /// 会话是否正在进行中
     @Published var isSessionActive: Bool = false
@@ -73,7 +75,10 @@ class TidySessionViewModel: ObservableObject {
     
     /// 当前照片对象
     var currentPhoto: TidyPhoto? {
-        guard currentIndex >= 0 && currentIndex < photosToReview.count else {
+        guard currentIndex >= 0,
+              currentIndex < photosToReview.count,
+              !photosToReview.isEmpty else {
+            print("⚠️ currentPhoto 访问越界: index=\(currentIndex), count=\(photosToReview.count)")
             return nil
         }
         return photosToReview[currentIndex]
@@ -97,7 +102,12 @@ class TidySessionViewModel: ObservableObject {
     
     /// 是否可以撤销删除
     var canUndo: Bool {
-        return lastDeletedAsset != nil
+        return !deletionHistory.isEmpty
+    }
+    
+    /// 可撤销的次数
+    var undoCount: Int {
+        return deletionHistory.count
     }
     
     /// 是否可以向前导航
@@ -113,6 +123,16 @@ class TidySessionViewModel: ObservableObject {
     /// 待删除照片数量
     var pendingDeletionCount: Int {
         return pendingDeletions.count
+    }
+    
+    /// 估算的待删除照片占用的存储空间（字节）
+    var estimatedStorageToFree: Int64 {
+        return calculateEstimatedStorage()
+    }
+    
+    /// 格式化的存储空间字符串
+    var formattedStorageToFree: String {
+        return formatBytes(estimatedStorageToFree)
     }
     
     // MARK: - Private Properties
@@ -131,17 +151,83 @@ class TidySessionViewModel: ObservableObject {
     
     // MARK: - 核心方法
     
+    /// 验证会话设置参数
+    /// - Parameters:
+    ///   - count: 需要审阅的照片数量
+    ///   - filterConfig: 过滤配置
+    /// - Returns: (isValid, errorMessage)
+    func validateSessionParameters(
+        count: Int,
+        filterConfig: FilterConfiguration
+    ) -> (isValid: Bool, errorMessage: String?) {
+        
+        // 先进行配置验证
+        let configValidation = filterConfig.validate()
+        if !configValidation.isValid {
+            let warningText = configValidation.warnings.joined(separator: "\n")
+            return (false, "过滤配置有问题：\n\(warningText)")
+        }
+        
+        // 构建预检查选项（复用 PhotoService 的逻辑）
+        let fetchOptions = PHFetchOptions()
+        var predicates: [NSPredicate] = []
+        
+        // 使用与 PhotoService 相同的 predicate 构建逻辑
+        predicates.append(contentsOf: buildContentTypePredicatesForValidation(filterConfig.contentType))
+        
+        if let datePredicates = buildDateRangePredicatesForValidation(filterConfig.dateRange) {
+            predicates.append(contentsOf: datePredicates)
+        }
+        
+        if let locationPredicate = buildLocationPredicateForValidation(filterConfig.locationFilter) {
+            predicates.append(locationPredicate)
+        }
+        
+        if let durationPredicates = buildDurationPredicatesForValidation(filterConfig.durationFilter) {
+            predicates.append(contentsOf: durationPredicates)
+        }
+        
+        if filterConfig.excludeHidden {
+            predicates.append(NSPredicate(format: "isHidden == NO"))
+        }
+        
+        if filterConfig.excludeFavorite {
+            predicates.append(NSPredicate(format: "isFavorite == NO"))
+        }
+        
+        fetchOptions.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+        
+        // 获取所有符合条件的资源
+        let allAssets = PHAsset.fetchAssets(with: fetchOptions)
+        
+        // 自拍需要后置过滤（因为无法通过 predicate 直接查询）
+        var availableCount = allAssets.count
+        if filterConfig.contentType == .selfies {
+            // 自拍需要逐个检查，这里只做粗略估算
+            availableCount = Int(Double(availableCount) * 0.3) // 假设 30% 是自拍
+        }
+        
+        print("验证参数：请求 \(count) 张，可用 \(availableCount) 张")
+        
+        // 验证是否有足够的照片
+        if availableCount == 0 {
+            return (false, "没有符合条件的照片。\n请调整过滤设置或检查相册权限。")
+        }
+        
+        if count > availableCount {
+            return (false, "相册中只有 \(availableCount) 张符合条件的照片。\n请减少选择数量或调整过滤条件。")
+        }
+        
+        return (true, nil)
+    }
+    
     /// 开始新的整理会话
     /// - Parameters:
     ///   - count: 需要审阅的照片数量
-    ///   - contentSubtypes: 内容子类型过滤
-    ///   - excludeHidden: 是否排除隐藏照片
-    ///   - excludeFavorite: 是否排除收藏照片
+    ///   - filterConfig: 过滤配置
     func startNewSession(
         count: Int = 10,
-        contentSubtypes: [PHAssetMediaSubtype] = [],
-        excludeHidden: Bool = true,
-        excludeFavorite: Bool = false
+        filterConfig: FilterConfiguration = FilterConfiguration()
     ) async {
         print("开始新会话，请求 \(count) 张照片")
         
@@ -155,22 +241,37 @@ class TidySessionViewModel: ObservableObject {
         let permissionStatus = await photoService.checkAndRequestPermissions()
         
         guard permissionStatus == .authorized || permissionStatus == .limited else {
-            errorMessage = "需要照片库访问权限才能继续"
+            if permissionStatus == .denied || permissionStatus == .restricted {
+                errorMessage = "需要照片库访问权限才能使用此功能。\n\n请前往「设置」>「隐私」>「照片」中授予权限。"
+            } else {
+                errorMessage = "无法访问照片库，请稍后重试。"
+            }
             isLoading = false
             print("权限被拒绝: \(permissionStatus.rawValue)")
+            return
+        }
+        
+        // 验证参数
+        let validation = validateSessionParameters(
+            count: count,
+            filterConfig: filterConfig
+        )
+        
+        guard validation.isValid else {
+            errorMessage = validation.errorMessage
+            isLoading = false
+            print("参数验证失败: \(validation.errorMessage ?? "")")
             return
         }
         
         // 获取随机照片
         let assets = photoService.fetchRandomAssets(
             count: count,
-            contentSubtypes: contentSubtypes,
-            excludeHidden: excludeHidden,
-            excludeFavorite: excludeFavorite
+            filterConfig: filterConfig
         )
         
         guard !assets.isEmpty else {
-            errorMessage = "未找到符合条件的照片"
+            errorMessage = "未找到符合条件的照片。\n请尝试调整过滤设置。"
             isLoading = false
             print("未找到照片")
             return
@@ -196,9 +297,14 @@ class TidySessionViewModel: ObservableObject {
         
         print("标记删除当前照片，索引: \(currentIndex) (延迟删除)")
         
-        // 记录删除信息用于撤销
-        lastDeletedAsset = currentPhoto.asset
-        lastDeletedIndex = currentIndex
+        // 记录删除历史用于撤销（支持多次撤销）
+        let historyItem = (asset: currentPhoto.asset, index: currentIndex)
+        deletionHistory.append(historyItem)
+        
+        // 限制历史记录大小
+        if deletionHistory.count > maxUndoSteps {
+            deletionHistory.removeFirst()
+        }
         
         // 添加到待删除队列（延迟删除策略）
         pendingDeletions.append(currentPhoto.asset)
@@ -206,7 +312,7 @@ class TidySessionViewModel: ObservableObject {
         // 增加删除计数（UI 显示）
         deletedCount += 1
         
-        print("已添加到待删除队列，当前队列大小: \(pendingDeletions.count)")
+        print("已添加到待删除队列，当前队列大小: \(pendingDeletions.count)，历史记录: \(deletionHistory.count)")
         
         // 移动到下一张
         moveToNextPhotoAfterAction()
@@ -223,9 +329,7 @@ class TidySessionViewModel: ObservableObject {
         
         keptCount += 1
         
-        // 清除撤销信息（因为用户主动选择保留）
-        lastDeletedAsset = nil
-        lastDeletedIndex = nil
+        // 注意：保留操作不清除删除历史，允许用户撤销之前的删除操作
         
         // 移动到下一张
         moveToNextPhotoAfterAction()
@@ -256,10 +360,6 @@ class TidySessionViewModel: ObservableObject {
         
         currentIndex -= 1
         print("向前导航到索引: \(currentIndex)")
-        
-        // 清除撤销信息（导航时重置）
-        lastDeletedAsset = nil
-        lastDeletedIndex = nil
     }
     
     /// 移动到下一张照片（手势驱动）
@@ -271,10 +371,6 @@ class TidySessionViewModel: ObservableObject {
         
         currentIndex += 1
         print("向后导航到索引: \(currentIndex)")
-        
-        // 清除撤销信息（导航时重置）
-        lastDeletedAsset = nil
-        lastDeletedIndex = nil
     }
     
     /// 跳转到指定索引
@@ -292,17 +388,20 @@ class TidySessionViewModel: ObservableObject {
     
     /// 撤销最后一次删除操作
     /// 使用延迟删除策略时，可以真正恢复照片（从待删除队列中移除）
+    /// 支持多次撤销（最多 maxUndoSteps 次）
     func undoLastDeletion() {
-        guard let deletedAsset = lastDeletedAsset,
-              let deletedIndex = lastDeletedIndex else {
+        guard !deletionHistory.isEmpty else {
             print("没有可撤销的删除操作")
             return
         }
         
-        print("撤销删除操作，恢复照片索引: \(deletedIndex)")
+        // 获取最后一次删除记录
+        let lastDeletion = deletionHistory.removeLast()
+        
+        print("撤销删除操作，恢复照片索引: \(lastDeletion.index)")
         
         // 从待删除队列中移除这张照片
-        if let queueIndex = pendingDeletions.firstIndex(where: { $0.localIdentifier == deletedAsset.localIdentifier }) {
+        if let queueIndex = pendingDeletions.firstIndex(where: { $0.localIdentifier == lastDeletion.asset.localIdentifier }) {
             pendingDeletions.remove(at: queueIndex)
             print("已从待删除队列中移除，剩余待删除: \(pendingDeletions.count)")
         }
@@ -313,13 +412,9 @@ class TidySessionViewModel: ObservableObject {
         }
         
         // 跳回到被删除照片的位置
-        jumpToIndex(deletedIndex)
+        jumpToIndex(lastDeletion.index)
         
-        // 清除撤销信息
-        lastDeletedAsset = nil
-        lastDeletedIndex = nil
-        
-        print("撤销操作完成，当前索引: \(currentIndex)")
+        print("撤销操作完成，当前索引: \(currentIndex)，剩余可撤销: \(deletionHistory.count)")
     }
     
     // MARK: - 会话管理
@@ -332,8 +427,7 @@ class TidySessionViewModel: ObservableObject {
         currentIndex = 0
         deletedCount = 0
         keptCount = 0
-        lastDeletedAsset = nil
-        lastDeletedIndex = nil
+        deletionHistory.removeAll()
         isSessionActive = false
         isSessionCompleted = false
         errorMessage = nil
@@ -378,21 +472,39 @@ class TidySessionViewModel: ObservableObject {
     
     /// 执行待删除照片的批量删除
     /// 此方法应该在用户确认后调用（例如在 SessionCompleteView 中）
-    func executePendingDeletions(completion: @escaping (Bool) -> Void) {
+    /// - Parameters:
+    ///   - progressHandler: 进度回调 (当前进度, 总数)
+    ///   - completion: 完成回调
+    func executePendingDeletions(
+        progressHandler: ((Int, Int) -> Void)? = nil,
+        completion: @escaping (Bool) -> Void
+    ) {
         guard !pendingDeletions.isEmpty else {
             print("没有待删除的照片")
             completion(true)
             return
         }
         
-        print("开始批量删除 \(pendingDeletions.count) 张照片...")
+        let totalCount = pendingDeletions.count
+        print("开始批量删除 \(totalCount) 张照片...")
         
-        photoService.deleteAssets(assets: pendingDeletions) { [weak self] success, error in
+        // 报告初始进度
+        progressHandler?(0, totalCount)
+        
+        photoService.deleteAssets(
+            assets: pendingDeletions,
+            progressHandler: { current, total in
+                // 更新进度
+                Task { @MainActor in
+                    progressHandler?(current, total)
+                }
+            }
+        ) { [weak self] success, error in
             guard let self = self else { return }
             
             Task { @MainActor in
                 if success {
-                    print("批量删除成功！共 \(self.pendingDeletions.count) 张照片")
+                    print("批量删除成功！共 \(totalCount) 张照片")
                     self.pendingDeletions.removeAll()
                     completion(true)
                 } else {
@@ -424,6 +536,61 @@ class TidySessionViewModel: ObservableObject {
         photoService.fetchThumbnail(for: currentPhoto.asset, targetSize: targetSize, completion: completion)
     }
     
+    /// 异步获取当前照片的缩略图（支持 Task 取消）
+    /// - Parameters:
+    ///   - targetSize: 目标尺寸
+    ///   - progressHandler: 进度回调 (0.0 到 1.0)
+    /// - Returns: UIImage 或 nil
+    func loadCurrentPhotoAsync(
+        targetSize: CGSize = CGSize(width: 1200, height: 1200),
+        progressHandler: ((Double) -> Void)? = nil
+    ) async throws -> UIImage? {
+        guard let currentPhoto = currentPhoto else {
+            print("⚠️ loadCurrentPhotoAsync: 当前照片为空")
+            return nil
+        }
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            // 报告初始进度
+            progressHandler?(0.0)
+            
+            let requestOptions = PHImageRequestOptions()
+            requestOptions.deliveryMode = .highQualityFormat
+            requestOptions.isNetworkAccessAllowed = true
+            requestOptions.isSynchronous = false
+            
+            // 监听下载进度（如果照片在 iCloud）
+            requestOptions.progressHandler = { progress, error, stop, info in
+                Task { @MainActor in
+                    progressHandler?(progress)
+                }
+            }
+            
+            PHImageManager.default().requestImage(
+                for: currentPhoto.asset,
+                targetSize: targetSize,
+                contentMode: .aspectFit,
+                options: requestOptions
+            ) { image, info in
+                // 报告完成
+                progressHandler?(1.0)
+                
+                if let error = info?[PHImageErrorKey] as? Error {
+                    print("⚠️ 图片加载失败: \(error.localizedDescription)")
+                    continuation.resume(throwing: error)
+                    return
+                }
+                
+                if let image = image {
+                    continuation.resume(returning: image)
+                } else {
+                    print("⚠️ 图片加载返回 nil")
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+    
     /// 获取指定索引照片的缩略图
     func getThumbnail(at index: Int, targetSize: CGSize = CGSize(width: 400, height: 400), completion: @escaping (UIImage?) -> Void) {
         guard index >= 0 && index < photosToReview.count else {
@@ -433,6 +600,111 @@ class TidySessionViewModel: ObservableObject {
         
         let photo = photosToReview[index]
         photoService.fetchThumbnail(for: photo.asset, targetSize: targetSize, completion: completion)
+    }
+    
+    /// 异步获取指定索引照片的缩略图（用于预加载）
+    func loadPhotoAsync(at index: Int, targetSize: CGSize) async -> UIImage? {
+        guard index >= 0 && index < photosToReview.count else {
+            return nil
+        }
+        
+        let photo = photosToReview[index]
+        
+        return await withCheckedContinuation { continuation in
+            let requestOptions = PHImageRequestOptions()
+            requestOptions.deliveryMode = .highQualityFormat
+            requestOptions.isNetworkAccessAllowed = false // 预加载不从 iCloud 下载
+            requestOptions.isSynchronous = false
+            
+            PHImageManager.default().requestImage(
+                for: photo.asset,
+                targetSize: targetSize,
+                contentMode: .aspectFit,
+                options: requestOptions
+            ) { image, _ in
+                continuation.resume(returning: image)
+            }
+        }
+    }
+    
+    /// 异步加载 Live Photo
+    /// - Parameters:
+    ///   - asset: PHAsset
+    ///   - targetSize: 目标尺寸
+    ///   - progressHandler: 进度回调
+    /// - Returns: PHLivePhoto 或 nil
+    func loadLivePhotoAsync(
+        asset: PHAsset,
+        targetSize: CGSize,
+        progressHandler: ((Double) -> Void)? = nil
+    ) async throws -> PHLivePhoto? {
+        return try await withCheckedThrowingContinuation { continuation in
+            progressHandler?(0.0)
+            
+            let requestOptions = PHLivePhotoRequestOptions()
+            requestOptions.deliveryMode = .highQualityFormat
+            requestOptions.isNetworkAccessAllowed = true
+            
+            // 监听下载进度
+            requestOptions.progressHandler = { progress, error, stop, info in
+                Task { @MainActor in
+                    progressHandler?(progress)
+                }
+            }
+            
+            PHImageManager.default().requestLivePhoto(
+                for: asset,
+                targetSize: targetSize,
+                contentMode: .aspectFit,
+                options: requestOptions
+            ) { livePhoto, info in
+                progressHandler?(1.0)
+                
+                if let error = info?[PHImageErrorKey] as? Error {
+                    print("⚠️ Live Photo 加载失败: \(error.localizedDescription)")
+                    continuation.resume(throwing: error)
+                    return
+                }
+                
+                if let livePhoto = livePhoto {
+                    print("✅ Live Photo 加载成功")
+                    continuation.resume(returning: livePhoto)
+                } else {
+                    print("⚠️ Live Photo 加载返回 nil")
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+    
+    /// 异步加载视频
+    /// - Parameter asset: PHAsset
+    /// - Returns: AVPlayerItem 或 nil
+    func loadVideoAsync(asset: PHAsset) async throws -> AVPlayerItem? {
+        return try await withCheckedThrowingContinuation { continuation in
+            let requestOptions = PHVideoRequestOptions()
+            requestOptions.deliveryMode = .highQualityFormat
+            requestOptions.isNetworkAccessAllowed = true
+            
+            PHImageManager.default().requestPlayerItem(
+                forVideo: asset,
+                options: requestOptions
+            ) { playerItem, info in
+                if let error = info?[PHImageErrorKey] as? Error {
+                    print("⚠️ 视频加载失败: \(error.localizedDescription)")
+                    continuation.resume(throwing: error)
+                    return
+                }
+                
+                if let playerItem = playerItem {
+                    print("✅ 视频加载成功，时长: \(CMTimeGetSeconds(playerItem.duration))s")
+                    continuation.resume(returning: playerItem)
+                } else {
+                    print("⚠️ 视频加载返回 nil")
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
     }
     
     /// 获取当前照片的详细信息
@@ -454,6 +726,185 @@ class TidySessionViewModel: ObservableObject {
         - 已保留: \(keptCount)
         - 剩余: \(remainingPhotos)
         """
+    }
+    
+    // MARK: - 存储空间估算
+    
+    /// 计算待删除照片的估算存储空间
+    private func calculateEstimatedStorage() -> Int64 {
+        var totalBytes: Int64 = 0
+        
+        for asset in pendingDeletions {
+            // 获取资源信息
+            let resources = PHAssetResource.assetResources(for: asset)
+            
+            for resource in resources {
+                if let size = resource.value(forKey: "fileSize") as? Int64 {
+                    totalBytes += size
+                } else {
+                    // 如果无法获取实际大小，使用估算值
+                    // 照片平均 3MB，视频平均按时长估算
+                    if asset.mediaType == .video {
+                        // 视频：按 10MB/分钟估算
+                        let minutes = asset.duration / 60.0
+                        totalBytes += Int64(minutes * 10 * 1024 * 1024)
+                    } else {
+                        // 照片：按分辨率估算
+                        let pixels = Int64(asset.pixelWidth * asset.pixelHeight)
+                        // 假设 1MP ≈ 0.5MB (考虑JPEG压缩)
+                        let megapixels = Double(pixels) / 1_000_000.0
+                        totalBytes += Int64(megapixels * 0.5 * 1024 * 1024)
+                    }
+                }
+            }
+        }
+        
+        return totalBytes
+    }
+    
+    /// 格式化字节数为可读字符串
+    private func formatBytes(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useKB, .useMB, .useGB]
+        formatter.countStyle = .file
+        formatter.includesUnit = true
+        formatter.isAdaptive = true
+        return formatter.string(fromByteCount: bytes)
+    }
+    
+    // MARK: - 验证辅助方法（简化版，复用 PhotoService 的逻辑思路）
+    
+    /// 构建内容类型 Predicates（用于验证）
+    private func buildContentTypePredicatesForValidation(_ contentType: ContentType) -> [NSPredicate] {
+        var predicates: [NSPredicate] = []
+        
+        switch contentType {
+        case .all:
+            let mediaTypePredicate = NSPredicate(format: "mediaType == %d OR mediaType == %d",
+                                                PHAssetMediaType.image.rawValue,
+                                                PHAssetMediaType.video.rawValue)
+            predicates.append(mediaTypePredicate)
+            
+        case .videos, .slowMotionVideos, .timelapseVideos:
+            let videoPredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.video.rawValue)
+            predicates.append(videoPredicate)
+            
+            if contentType == .slowMotionVideos {
+                let slowMoPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.videoHighFrameRate.rawValue)
+                predicates.append(slowMoPredicate)
+            } else if contentType == .timelapseVideos {
+                let timelapsePredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.videoTimelapse.rawValue)
+                predicates.append(timelapsePredicate)
+            }
+            
+        case .screenshots:
+            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            let screenshotPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoScreenshot.rawValue)
+            predicates.append(contentsOf: [imagePredicate, screenshotPredicate])
+            
+        case .panoramas:
+            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            let panoramaPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoPanorama.rawValue)
+            predicates.append(contentsOf: [imagePredicate, panoramaPredicate])
+            
+        case .livePhotos:
+            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            let livePredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoLive.rawValue)
+            predicates.append(contentsOf: [imagePredicate, livePredicate])
+            
+        case .portraits:
+            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            let portraitPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoDepthEffect.rawValue)
+            predicates.append(contentsOf: [imagePredicate, portraitPredicate])
+            
+        case .hdrPhotos:
+            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            let hdrPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoHDR.rawValue)
+            predicates.append(contentsOf: [imagePredicate, hdrPredicate])
+            
+        case .bursts:
+            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            let burstPredicate = NSPredicate(format: "burstIdentifier != nil")
+            predicates.append(contentsOf: [imagePredicate, burstPredicate])
+            
+        case .selfies:
+            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
+            predicates.append(imagePredicate)
+        }
+        
+        return predicates
+    }
+    
+    /// 构建日期范围 Predicates（用于验证）
+    private func buildDateRangePredicatesForValidation(_ dateRange: DateRangeType?) -> [NSPredicate]? {
+        guard let dateRange = dateRange else { return nil }
+        
+        var predicates: [NSPredicate] = []
+        let calendar = Calendar.current
+        let now = Date()
+        let currentYear = calendar.component(.year, from: now)
+        
+        switch dateRange {
+        case .recent7Days:
+            if let startDate = calendar.date(byAdding: .day, value: -7, to: now) {
+                predicates.append(NSPredicate(format: "creationDate >= %@", startDate as NSDate))
+            }
+        case .recent30Days:
+            if let startDate = calendar.date(byAdding: .day, value: -30, to: now) {
+                predicates.append(NSPredicate(format: "creationDate >= %@", startDate as NSDate))
+            }
+        case .thisYear:
+            if let startOfYear = calendar.date(from: DateComponents(year: currentYear, month: 1, day: 1)) {
+                predicates.append(NSPredicate(format: "creationDate >= %@", startOfYear as NSDate))
+            }
+        case .lastYear:
+            let lastYearStart = calendar.date(from: DateComponents(year: currentYear - 1, month: 1, day: 1))
+            let lastYearEnd = calendar.date(from: DateComponents(year: currentYear, month: 1, day: 1))?.addingTimeInterval(-1)
+            if let start = lastYearStart {
+                predicates.append(NSPredicate(format: "creationDate >= %@", start as NSDate))
+            }
+            if let end = lastYearEnd {
+                predicates.append(NSPredicate(format: "creationDate <= %@", end as NSDate))
+            }
+        case .older1Year:
+            if let oneYearAgo = calendar.date(byAdding: .year, value: -1, to: now) {
+                predicates.append(NSPredicate(format: "creationDate < %@", oneYearAgo as NSDate))
+            }
+        case .older2Years:
+            if let twoYearsAgo = calendar.date(byAdding: .year, value: -2, to: now) {
+                predicates.append(NSPredicate(format: "creationDate < %@", twoYearsAgo as NSDate))
+            }
+        }
+        
+        return predicates.isEmpty ? nil : predicates
+    }
+    
+    /// 构建位置 Predicate（用于验证）
+    private func buildLocationPredicateForValidation(_ locationFilter: LocationFilterType?) -> NSPredicate? {
+        guard let locationFilter = locationFilter else { return nil }
+        
+        switch locationFilter {
+        case .withLocation:
+            return NSPredicate(format: "location != nil")
+        case .withoutLocation:
+            return NSPredicate(format: "location == nil")
+        }
+    }
+    
+    /// 构建时长 Predicates（用于验证）
+    private func buildDurationPredicatesForValidation(_ durationFilter: DurationFilterType?) -> [NSPredicate]? {
+        guard let durationFilter = durationFilter else { return nil }
+        
+        var predicates: [NSPredicate] = []
+        
+        switch durationFilter {
+        case .shortVideos:
+            predicates.append(NSPredicate(format: "duration > 0 AND duration <= %f", 30.0))
+        case .longVideos:
+            predicates.append(NSPredicate(format: "duration >= %f", 300.0))
+        }
+        
+        return predicates.isEmpty ? nil : predicates
     }
 }
 

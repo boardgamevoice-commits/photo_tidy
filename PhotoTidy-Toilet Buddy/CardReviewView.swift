@@ -7,6 +7,9 @@
 
 import SwiftUI
 import Photos
+import PhotosUI
+import AVFoundation
+import AVKit
 
 /// 核心照片审阅视图 - 卡片式交互
 struct CardReviewView: View {
@@ -19,9 +22,12 @@ struct CardReviewView: View {
     @State private var dragOffset: CGSize = .zero
     @State private var isDragging: Bool = false
     
-    // 缩放状态 (A-01 双击放大)
+    // 缩放状态 (A-01 双击放大 + 捏合缩放)
     @State private var isZoomed: Bool = false
-    @State private var zoomScale: CGFloat = 1.0
+    @State private var currentScale: CGFloat = 1.0
+    @State private var finalScale: CGFloat = 1.0
+    @State private var panOffset: CGSize = .zero
+    @State private var finalPanOffset: CGSize = .zero
     
     // 动画状态
     @State private var isDeleting: Bool = false
@@ -32,11 +38,44 @@ struct CardReviewView: View {
     // 照片加载
     @State private var currentImage: UIImage?
     @State private var isLoadingImage: Bool = true
+    @State private var loadProgress: Double = 0.0
+    @State private var loadTask: Task<Void, Never>?
+    
+    // Live Photo 支持
+    @State private var currentLivePhoto: PHLivePhoto?
+    @State private var isPlayingLive: Bool = false
+    
+    // 视频支持
+    @State private var videoPlayer: AVPlayer?
+    @State private var isPlayingVideo: Bool = false
+    
+    // 媒体类型
+    @State private var currentMediaType: MediaType = .image
+    
+    // 预加载缓存
+    @State private var preloadedImages: [Int: UIImage] = [:]
+    @State private var preloadTasks: [Int: Task<Void, Never>] = [:]
+    
+    // 错误处理
+    @State private var consecutiveFailures: Int = 0
+    @State private var showBatchSkipAlert: Bool = false
+    
+    // 动画任务管理
+    @State private var animationTask: Task<Void, Never>?
     
     // MARK: - Constants
     
     private let dragThreshold: CGFloat = 100
     private let cardRotationFactor: Double = 0.05
+    
+    // 动态计算最优缩略图尺寸（根据屏幕）
+    private var optimalThumbnailSize: CGSize {
+        let scale = UIScreen.main.scale
+        let screenWidth = UIScreen.main.bounds.width
+        let maxSize: CGFloat = 1200
+        let targetWidth = min(screenWidth * scale, maxSize)
+        return CGSize(width: targetWidth, height: targetWidth)
+    }
     
     // MARK: - Body
     
@@ -82,10 +121,26 @@ struct CardReviewView: View {
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {
             loadCurrentPhoto()
+            preloadNextPhotos()
         }
         .onChange(of: viewModel.currentIndex) { _ in
             loadCurrentPhoto()
+            preloadNextPhotos()
             resetAnimationStates()
+        }
+        .onDisappear {
+            // 清理所有任务
+            cleanupTasks()
+        }
+        .alert("连续加载失败", isPresented: $showBatchSkipAlert) {
+            Button("继续尝试", role: .cancel) {
+                consecutiveFailures = 0
+            }
+            Button("跳过所有错误照片") {
+                skipFailedPhotos()
+            }
+        } message: {
+            Text("已连续失败 \(consecutiveFailures) 张照片。是否跳过所有加载失败的照片？")
         }
     }
     
@@ -147,14 +202,54 @@ struct CardReviewView: View {
                             .foregroundColor(.white.opacity(0.9))
                         
                         HStack(spacing: 8) {
-                            Text("\(photo.asset.pixelWidth) × \(photo.asset.pixelHeight)")
-                                .font(.caption2)
+                            // 分辨率信息
+                            HStack(spacing: 2) {
+                                Image(systemName: "photo")
+                                    .font(.caption2)
+                                Text("\(photo.asset.pixelWidth) × \(photo.asset.pixelHeight)")
+                                    .font(.caption2)
+                            }
                             
+                            // 文件大小信息（如果是视频）
                             if photo.asset.mediaType == .video {
-                                Image(systemName: "video.fill")
-                                    .font(.caption2)
-                                Text(formatDuration(photo.asset.duration))
-                                    .font(.caption2)
+                                Divider()
+                                    .frame(height: 12)
+                                HStack(spacing: 2) {
+                                    Image(systemName: "video.fill")
+                                        .font(.caption2)
+                                    Text(formatDuration(photo.asset.duration))
+                                        .font(.caption2)
+                                }
+                            }
+                            
+                            // 媒体类型标记
+                            if photo.asset.mediaSubtypes.contains(.photoScreenshot) {
+                                Divider()
+                                    .frame(height: 12)
+                                HStack(spacing: 2) {
+                                    Image(systemName: "camera.viewfinder")
+                                        .font(.caption2)
+                                    Text("截图")
+                                        .font(.caption2)
+                                }
+                            } else if photo.asset.mediaSubtypes.contains(.photoLive) {
+                                Divider()
+                                    .frame(height: 12)
+                                HStack(spacing: 2) {
+                                    Image(systemName: "livephoto")
+                                        .font(.caption2)
+                                    Text("Live")
+                                        .font(.caption2)
+                                }
+                            } else if photo.asset.mediaSubtypes.contains(.photoPanorama) {
+                                Divider()
+                                    .frame(height: 12)
+                                HStack(spacing: 2) {
+                                    Image(systemName: "pano")
+                                        .font(.caption2)
+                                    Text("全景")
+                                        .font(.caption2)
+                                }
                             }
                         }
                         .foregroundColor(.white.opacity(0.7))
@@ -169,7 +264,7 @@ struct CardReviewView: View {
                     StatBadgeCompact(icon: "hand.thumbsup.fill", count: viewModel.keptCount, color: .green)
                 }
                 
-                // 撤销按钮 (A-03)
+                // 撤销按钮 (A-03) - 显示可撤销次数
                 Button(action: {
                     withAnimation(.spring(response: 0.3)) {
                         viewModel.undoLastDeletion()
@@ -181,6 +276,11 @@ struct CardReviewView: View {
                         Text("撤销")
                             .font(.subheadline)
                             .fontWeight(.medium)
+                        if viewModel.undoCount > 0 {
+                            Text("(\(viewModel.undoCount))")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                        }
                     }
                     .foregroundColor(viewModel.canUndo ? .orange : .gray)
                     .padding(.horizontal, 12)
@@ -201,6 +301,284 @@ struct CardReviewView: View {
     private var photoCardView: some View {
         GeometryReader { geometry in
             ZStack {
+                // 根据媒体类型渲染不同的内容
+                mediaContentView(geometry: geometry)
+                
+                // 拖拽方向提示
+                if isDragging && !isZoomed {
+                    VStack {
+                        if dragOffset.width > 50 {
+                            // 右滑提示 - 上一张
+                            HStack {
+                                VStack {
+                                    Image(systemName: "chevron.left")
+                                        .font(.title)
+                                        .foregroundColor(.blue)
+                                    Text("上一张")
+                                        .font(.caption)
+                                        .foregroundColor(.blue)
+                                }
+                                .padding()
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color.blue.opacity(0.2))
+                                )
+                                Spacer()
+                            }
+                        } else if dragOffset.width < -50 {
+                            // 左滑提示 - 下一张
+                            HStack {
+                                Spacer()
+                                VStack {
+                                    Image(systemName: "chevron.right")
+                                        .font(.title)
+                                        .foregroundColor(.purple)
+                                    Text("下一张")
+                                        .font(.caption)
+                                        .foregroundColor(.purple)
+                                }
+                                .padding()
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color.purple.opacity(0.2))
+                                )
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.opacity)
+                }
+                
+                // 放大模式提示
+                if isZoomed {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            VStack(spacing: 4) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "magnifyingglass")
+                                        .font(.caption2)
+                                    Text("\(String(format: "%.1f", finalScale * currentScale))x")
+                                        .font(.caption2)
+                                        .fontWeight(.semibold)
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.black.opacity(0.6))
+                                )
+                                
+                                Text("双击退出")
+                                    .font(.caption2)
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                            .padding()
+                        }
+                        Spacer()
+                    }
+                    .transition(.opacity)
+                    .allowsHitTesting(false)
+                }
+                
+                if isLoadingImage {
+                    VStack(spacing: 20) {
+                        ProgressView(value: loadProgress, total: 1.0)
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.5)
+                        
+                        VStack(spacing: 8) {
+                            Text("加载中...")
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.7))
+                            
+                            if loadProgress > 0 && loadProgress < 1.0 {
+                                Text("\(Int(loadProgress * 100))%")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.5))
+                            }
+                        }
+                    }
+                } else if currentImage == nil && currentLivePhoto == nil && videoPlayer == nil {
+                    // 加载失败，显示错误和重试（只有真的没有任何内容时才显示）
+                    VStack(spacing: 25) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.red.opacity(0.2))
+                                .frame(width: 100, height: 100)
+                            
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 50))
+                                .foregroundColor(.red.opacity(0.8))
+                        }
+                        
+                        VStack(spacing: 10) {
+                            Text("无法加载照片")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            Text("这张照片可能已被删除或损坏")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.7))
+                                .multilineTextAlignment(.center)
+                        }
+                        
+                        HStack(spacing: 15) {
+                            // 重试按钮
+                            Button(action: {
+                                loadCurrentPhoto()
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "arrow.clockwise")
+                                        .font(.subheadline)
+                                    Text("重试")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color.orange)
+                                )
+                            }
+                            
+                            // 跳过按钮
+                            Button(action: {
+                                viewModel.moveToNextPhoto()
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "forward.fill")
+                                        .font(.subheadline)
+                                    Text("跳过")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color.gray)
+                                )
+                            }
+                        }
+                    }
+                    .padding()
+                }
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    // MARK: - Media Content View
+    
+    /// 根据媒体类型渲染不同的内容视图
+    @ViewBuilder
+    private func mediaContentView(geometry: GeometryProxy) -> some View {
+        Group {
+            switch currentMediaType {
+            case .livePhoto:
+                // Live Photo 渲染
+                if let livePhoto = currentLivePhoto {
+                    LivePhotoView(livePhoto: livePhoto, isPlaying: $isPlayingLive)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                        .shadow(color: Color.black.opacity(0.5), radius: 20, x: 0, y: 10)
+                        .overlay(
+                            // Live Photo 长按提示
+                            VStack {
+                                HStack {
+                                    Spacer()
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "livephoto")
+                                            .font(.caption2)
+                                        Text(isPlayingLive ? "播放中" : "长按播放")
+                                            .font(.caption2)
+                                    }
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(
+                                        Capsule()
+                                            .fill(isPlayingLive ? Color.green.opacity(0.8) : Color.black.opacity(0.6))
+                                    )
+                                    .padding()
+                                }
+                                Spacer()
+                            }
+                        )
+                        .onLongPressGesture(minimumDuration: 0.1) {
+                            isPlayingLive = true
+                        }
+                        .applyMediaTransforms(
+                            isZoomed: isZoomed,
+                            currentScale: currentScale,
+                            finalScale: finalScale,
+                            panOffset: panOffset,
+                            finalPanOffset: finalPanOffset,
+                            dragOffset: dragOffset,
+                            isDragging: isDragging,
+                            isDeleting: isDeleting,
+                            deleteDirection: deleteDirection,
+                            cardRotationFactor: cardRotationFactor
+                        )
+                        .applyMediaGestures(
+                            isZoomed: $isZoomed,
+                            currentScale: $currentScale,
+                            finalScale: $finalScale,
+                            panOffset: $panOffset,
+                            finalPanOffset: $finalPanOffset,
+                            dragOffset: $dragOffset,
+                            isDragging: $isDragging,
+                            onMagnificationEnd: handleMagnificationEnd,
+                            onPanEnd: handlePanEnd,
+                            onDragEnd: handleDragEnd,
+                            onDoubleTap: handleDoubleTap
+                        )
+                }
+                
+            case .video:
+                // 视频渲染
+                if let player = videoPlayer {
+                    VideoPlayerControlView(player: player, isPlaying: $isPlayingVideo)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                        .shadow(color: Color.black.opacity(0.5), radius: 20, x: 0, y: 10)
+                        .applyMediaTransforms(
+                            isZoomed: false, // 视频不支持缩放
+                            currentScale: 1.0,
+                            finalScale: 1.0,
+                            panOffset: .zero,
+                            finalPanOffset: .zero,
+                            dragOffset: dragOffset,
+                            isDragging: isDragging,
+                            isDeleting: isDeleting,
+                            deleteDirection: deleteDirection,
+                            cardRotationFactor: cardRotationFactor
+                        )
+                        .gesture(
+                            // 视频只支持导航拖拽，不支持缩放
+                            DragGesture()
+                                .onChanged { value in
+                                    if !isPlayingVideo { // 播放时禁用导航
+                                        isDragging = true
+                                        dragOffset = value.translation
+                                    }
+                                }
+                                .onEnded { value in
+                                    if !isPlayingVideo {
+                                        handleDragEnd(translation: value.translation)
+                                    }
+                                }
+                        )
+                }
+                
+            case .image, .panorama:
+                // 普通照片/全景照片渲染
                 if let image = currentImage {
                     Image(uiImage: image)
                         .resizable()
@@ -208,106 +586,34 @@ struct CardReviewView: View {
                         .frame(width: geometry.size.width, height: geometry.size.height)
                         .clipShape(RoundedRectangle(cornerRadius: 20))
                         .shadow(color: Color.black.opacity(0.5), radius: 20, x: 0, y: 10)
-                        .scaleEffect(isZoomed ? 2.0 : 1.0 + (abs(dragOffset.width) / 1000))
-                        .rotationEffect(.degrees(isDragging ? Double(dragOffset.width) * cardRotationFactor : 0))
-                        .offset(
-                            x: isDeleting ? deleteDirection * geometry.size.width * 1.5 : dragOffset.width,
-                            y: isDeleting ? -50 : dragOffset.height * 0.2
+                        .applyMediaTransforms(
+                            isZoomed: isZoomed,
+                            currentScale: currentScale,
+                            finalScale: finalScale,
+                            panOffset: panOffset,
+                            finalPanOffset: finalPanOffset,
+                            dragOffset: dragOffset,
+                            isDragging: isDragging,
+                            isDeleting: isDeleting,
+                            deleteDirection: deleteDirection,
+                            cardRotationFactor: cardRotationFactor
                         )
-                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isZoomed)
-                        .animation(
-                            isDeleting ? .spring(response: 0.5, dampingFraction: 0.8) : .spring(response: 0.3, dampingFraction: 0.7),
-                            value: isDeleting
+                        .applyMediaGestures(
+                            isZoomed: $isZoomed,
+                            currentScale: $currentScale,
+                            finalScale: $finalScale,
+                            panOffset: $panOffset,
+                            finalPanOffset: $finalPanOffset,
+                            dragOffset: $dragOffset,
+                            isDragging: $isDragging,
+                            onMagnificationEnd: handleMagnificationEnd,
+                            onPanEnd: handlePanEnd,
+                            onDragEnd: handleDragEnd,
+                            onDoubleTap: handleDoubleTap
                         )
-                        .opacity(isDeleting ? 0 : 1 - Double(abs(dragOffset.width)) / 500)
-                        // 双击放大手势 (A-01)
-                        .onTapGesture(count: 2) {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                isZoomed.toggle()
-                            }
-                        }
-                        // 拖拽手势用于导航
-                        .gesture(
-                            DragGesture()
-                                .onChanged { value in
-                                    if !isZoomed {
-                                        isDragging = true
-                                        dragOffset = value.translation
-                                    }
-                                }
-                                .onEnded { value in
-                                    handleDragEnd(translation: value.translation)
-                                }
-                        )
-                    
-                    // 拖拽方向提示
-                    if isDragging && !isZoomed {
-                        VStack {
-                            if dragOffset.width > 50 {
-                                // 右滑提示 - 上一张
-                                HStack {
-                                    VStack {
-                                        Image(systemName: "chevron.left")
-                                            .font(.title)
-                                            .foregroundColor(.blue)
-                                        Text("上一张")
-                                            .font(.caption)
-                                            .foregroundColor(.blue)
-                                    }
-                                    .padding()
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(Color.blue.opacity(0.2))
-                                    )
-                                    Spacer()
-                                }
-                            } else if dragOffset.width < -50 {
-                                // 左滑提示 - 下一张
-                                HStack {
-                                    Spacer()
-                                    VStack {
-                                        Image(systemName: "chevron.right")
-                                            .font(.title)
-                                            .foregroundColor(.purple)
-                                        Text("下一张")
-                                            .font(.caption)
-                                            .foregroundColor(.purple)
-                                    }
-                                    .padding()
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(Color.purple.opacity(0.2))
-                                    )
-                                }
-                            }
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .transition(.opacity)
-                    }
-                    
-                } else if isLoadingImage {
-                    VStack(spacing: 20) {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(1.5)
-                        Text("加载中...")
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.7))
-                    }
-                } else {
-                    VStack(spacing: 20) {
-                        Image(systemName: "photo.fill")
-                            .font(.system(size: 60))
-                            .foregroundColor(.white.opacity(0.3))
-                        Text("无法加载照片")
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.7))
-                    }
                 }
             }
-            .frame(width: geometry.size.width, height: geometry.size.height)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     // MARK: - Bottom Action Buttons (F-06)
@@ -403,71 +709,291 @@ struct CardReviewView: View {
         }
     }
     
-    private func handleDeleteAction() {
-        guard !isDeleting else { return }
-        
-        // 视觉反馈动画
-        isDeleting = true
-        deleteDirection = -1 // 向左飞出
-        
-        // 红色闪烁
-        withAnimation(.easeOut(duration: 0.2)) {
-            showRedFlash = true
-        }
-        
-        // 震动反馈
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.impactOccurred()
-        
-        // 延迟执行删除
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            viewModel.deleteCurrentPhoto()
-            
-            // 重置动画状态
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                withAnimation {
-                    showRedFlash = false
-                }
-                resetAnimationStates()
+    // MARK: - 缩放手势处理
+    
+    /// 双击放大/缩小
+    private func handleDoubleTap() {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            if isZoomed {
+                // 缩小到原始大小
+                resetZoom()
+            } else {
+                // 放大到 2 倍
+                isZoomed = true
+                finalScale = 2.0
+                currentScale = 1.0
             }
         }
     }
     
-    private func handleKeepAction() {
-        // 绿色闪烁
-        withAnimation(.easeOut(duration: 0.2)) {
-            showGreenFlash = true
+    /// 捏合缩放结束处理
+    private func handleMagnificationEnd(scale: CGFloat) {
+        // 合并缩放值
+        let newScale = finalScale * scale
+        
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            // 限制缩放范围：1.0 - 5.0
+            if newScale < 1.0 {
+                // 缩小到小于 1.0，恢复原始状态
+                resetZoom()
+            } else if newScale > 5.0 {
+                // 超过最大值，限制到 5.0
+                finalScale = 5.0
+                currentScale = 1.0
+                isZoomed = true
+            } else {
+                // 正常范围
+                finalScale = newScale
+                currentScale = 1.0
+                isZoomed = newScale > 1.0
+            }
         }
+    }
+    
+    /// 平移结束处理（仅在放大状态）
+    private func handlePanEnd(translation: CGSize) {
+        // 合并平移偏移
+        finalPanOffset.width += panOffset.width
+        finalPanOffset.height += panOffset.height
         
-        // 震动反馈
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(.success)
+        // 重置临时偏移
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            panOffset = .zero
+            
+            // 可选：限制平移范围，防止拖动太远
+            // 这里允许自由平移，用户可以通过双击重置
+        }
+    }
+    
+    /// 重置缩放和平移
+    private func resetZoom() {
+        isZoomed = false
+        currentScale = 1.0
+        finalScale = 1.0
+        panOffset = .zero
+        finalPanOffset = .zero
+    }
+    
+    private func handleDeleteAction() {
+        guard !isDeleting else { return }
         
-        // 延迟执行保留
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        // 取消之前的动画任务
+        animationTask?.cancel()
+        
+        // 开始新的删除动画
+        animationTask = Task { @MainActor in
+            isDeleting = true
+            deleteDirection = -1 // 向左飞出
+            
+            // 红色闪烁
+            withAnimation(.easeOut(duration: 0.2)) {
+                showRedFlash = true
+            }
+            
+            // 震动反馈
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            
+            // 等待动画
+            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3s
+            
+            guard !Task.isCancelled else { return }
+            
+            viewModel.deleteCurrentPhoto()
+            
+            // 等待过渡
+            try? await Task.sleep(nanoseconds: 200_000_000) // 0.2s
+            
+            guard !Task.isCancelled else { return }
+            
+            withAnimation {
+                showRedFlash = false
+            }
+            resetAnimationStates()
+        }
+    }
+    
+    private func handleKeepAction() {
+        // 取消之前的动画任务
+        animationTask?.cancel()
+        
+        // 开始新的保留动画
+        animationTask = Task { @MainActor in
+            // 绿色闪烁
+            withAnimation(.easeOut(duration: 0.2)) {
+                showGreenFlash = true
+            }
+            
+            // 震动反馈
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            
+            // 等待动画
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+            
+            guard !Task.isCancelled else { return }
+            
             viewModel.keepCurrentPhoto()
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                withAnimation {
-                    showGreenFlash = false
-                }
+            try? await Task.sleep(nanoseconds: 200_000_000) // 0.2s
+            
+            guard !Task.isCancelled else { return }
+            
+            withAnimation {
+                showGreenFlash = false
             }
         }
     }
     
     private func loadCurrentPhoto() {
-        isLoadingImage = true
-        currentImage = nil
+        // 取消之前的加载任务
+        loadTask?.cancel()
         
-        guard viewModel.currentPhoto != nil else {
+        // 重置进度
+        loadProgress = 0.0
+        
+        // 重置媒体状态
+        currentImage = nil
+        currentLivePhoto = nil
+        videoPlayer?.pause()
+        videoPlayer = nil
+        isPlayingVideo = false
+        isPlayingLive = false
+        
+        guard let currentPhoto = viewModel.currentPhoto else {
             isLoadingImage = false
             return
         }
         
-        viewModel.getCurrentPhotoThumbnail(targetSize: CGSize(width: 1200, height: 1200)) { image in
+        // 确定媒体类型
+        let asset = currentPhoto.asset
+        if asset.mediaType == .video {
+            currentMediaType = .video
+            loadVideo(asset: asset)
+        } else if asset.mediaSubtypes.contains(.photoLive) {
+            currentMediaType = .livePhoto
+            loadLivePhoto(asset: asset)
+        } else {
+            currentMediaType = .image
+            loadRegularPhoto(asset: asset)
+        }
+    }
+    
+    /// 加载普通照片
+    private func loadRegularPhoto(asset: PHAsset) {
+        // 检查是否已经预加载
+        if let cachedImage = preloadedImages[viewModel.currentIndex] {
+            print("📸 使用预加载缓存，索引: \(viewModel.currentIndex)")
             withAnimation(.easeIn(duration: 0.2)) {
-                self.currentImage = image
+                self.currentImage = cachedImage
                 self.isLoadingImage = false
+                self.consecutiveFailures = 0
+            }
+            return
+        }
+        
+        isLoadingImage = true
+        
+        // 启动加载任务
+        loadTask = Task { @MainActor in
+            do {
+                let image = try await viewModel.loadCurrentPhotoAsync(
+                    targetSize: optimalThumbnailSize,
+                    progressHandler: { progress in
+                        Task { @MainActor in
+                            self.loadProgress = progress
+                        }
+                    }
+                )
+                
+                guard !Task.isCancelled else {
+                    print("⚠️ 加载任务已取消")
+                    return
+                }
+                
+                if let image = image {
+                    withAnimation(.easeIn(duration: 0.2)) {
+                        self.currentImage = image
+                        self.isLoadingImage = false
+                        self.consecutiveFailures = 0
+                    }
+                    print("✅ 照片加载成功，索引: \(viewModel.currentIndex)")
+                } else {
+                    handleLoadFailure()
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                print("❌ 照片加载失败: \(error.localizedDescription)")
+                handleLoadFailure()
+            }
+        }
+    }
+    
+    /// 加载 Live Photo
+    private func loadLivePhoto(asset: PHAsset) {
+        isLoadingImage = true
+        
+        loadTask = Task { @MainActor in
+            do {
+                let livePhoto = try await viewModel.loadLivePhotoAsync(
+                    asset: asset,
+                    targetSize: optimalThumbnailSize,
+                    progressHandler: { progress in
+                        Task { @MainActor in
+                            self.loadProgress = progress
+                        }
+                    }
+                )
+                
+                guard !Task.isCancelled else {
+                    print("⚠️ Live Photo 加载任务已取消")
+                    return
+                }
+                
+                if let livePhoto = livePhoto {
+                    withAnimation(.easeIn(duration: 0.2)) {
+                        self.currentLivePhoto = livePhoto
+                        self.isLoadingImage = false
+                        self.consecutiveFailures = 0
+                    }
+                    print("✅ Live Photo 加载成功，索引: \(viewModel.currentIndex)")
+                } else {
+                    handleLoadFailure()
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                print("❌ Live Photo 加载失败: \(error.localizedDescription)")
+                handleLoadFailure()
+            }
+        }
+    }
+    
+    /// 加载视频
+    private func loadVideo(asset: PHAsset) {
+        isLoadingImage = true
+        
+        loadTask = Task { @MainActor in
+            do {
+                let playerItem = try await viewModel.loadVideoAsync(asset: asset)
+                
+                guard !Task.isCancelled else {
+                    print("⚠️ 视频加载任务已取消")
+                    return
+                }
+                
+                if let playerItem = playerItem {
+                    let player = AVPlayer(playerItem: playerItem)
+                    withAnimation(.easeIn(duration: 0.2)) {
+                        self.videoPlayer = player
+                        self.isLoadingImage = false
+                        self.consecutiveFailures = 0
+                    }
+                    print("✅ 视频加载成功，索引: \(viewModel.currentIndex)")
+                } else {
+                    handleLoadFailure()
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                print("❌ 视频加载失败: \(error.localizedDescription)")
+                handleLoadFailure()
             }
         }
     }
@@ -475,10 +1001,117 @@ struct CardReviewView: View {
     private func resetAnimationStates() {
         dragOffset = .zero
         isDragging = false
-        isZoomed = false
         isDeleting = false
         showRedFlash = false
         showGreenFlash = false
+        
+        // 重置缩放和平移状态
+        resetZoom()
+    }
+    
+    // MARK: - 预加载与缓存管理
+    
+    /// 预加载后续照片
+    private func preloadNextPhotos() {
+        let currentIndex = viewModel.currentIndex
+        let totalPhotos = viewModel.totalPhotos
+        
+        // 预加载后面 2 张照片
+        let indicesToPreload = [currentIndex + 1, currentIndex + 2]
+        
+        for index in indicesToPreload {
+            guard index < totalPhotos,
+                  preloadedImages[index] == nil,
+                  preloadTasks[index] == nil else {
+                continue
+            }
+            
+            // 启动预加载任务
+            let task = Task { @MainActor in
+                if let image = await viewModel.loadPhotoAsync(at: index, targetSize: optimalThumbnailSize) {
+                    guard !Task.isCancelled else { return }
+                    preloadedImages[index] = image
+                    print("📦 预加载完成，索引: \(index)")
+                }
+                preloadTasks[index] = nil
+            }
+            
+            preloadTasks[index] = task
+        }
+        
+        // 清理过期的缓存（距离当前位置超过 3 张）
+        cleanupOldCache(currentIndex: currentIndex)
+    }
+    
+    /// 清理过期的缓存
+    private func cleanupOldCache(currentIndex: Int) {
+        let keysToRemove = preloadedImages.keys.filter { abs($0 - currentIndex) > 3 }
+        for key in keysToRemove {
+            preloadedImages.removeValue(forKey: key)
+            preloadTasks[key]?.cancel()
+            preloadTasks.removeValue(forKey: key)
+        }
+        
+        if !keysToRemove.isEmpty {
+            print("🧹 清理过期缓存: \(keysToRemove.count) 张")
+        }
+    }
+    
+    /// 清理所有任务
+    private func cleanupTasks() {
+        print("🧹 清理所有加载任务")
+        loadTask?.cancel()
+        animationTask?.cancel()
+        
+        for (_, task) in preloadTasks {
+            task.cancel()
+        }
+        preloadTasks.removeAll()
+        preloadedImages.removeAll()
+    }
+    
+    // MARK: - 错误处理
+    
+    /// 处理加载失败
+    private func handleLoadFailure() {
+        isLoadingImage = false
+        consecutiveFailures += 1
+        
+        print("⚠️ 加载失败次数: \(consecutiveFailures)")
+        
+        // 连续失败 3 次，显示批量跳过选项
+        if consecutiveFailures >= 3 {
+            showBatchSkipAlert = true
+        }
+    }
+    
+    /// 跳过所有失败的照片
+    private func skipFailedPhotos() {
+        print("⏭️ 跳过所有加载失败的照片")
+        
+        // 简单策略：连续尝试加载下几张照片，直到成功
+        Task { @MainActor in
+            var attempts = 0
+            let maxAttempts = 10
+            
+            while attempts < maxAttempts && viewModel.canMoveNext {
+                viewModel.moveToNextPhoto()
+                
+                // 尝试加载
+                if let _ = try? await viewModel.loadCurrentPhotoAsync(targetSize: optimalThumbnailSize) {
+                    print("✅ 找到可加载的照片，索引: \(viewModel.currentIndex)")
+                    consecutiveFailures = 0
+                    break
+                }
+                
+                attempts += 1
+            }
+            
+            if attempts >= maxAttempts {
+                print("❌ 跳过失败，可能所有照片都无法加载")
+                viewModel.errorMessage = "无法加载更多照片，请检查相册权限。"
+            }
+        }
     }
     
     // MARK: - Helper Methods
@@ -524,12 +1157,218 @@ struct StatBadgeCompact: View {
     }
 }
 
+// MARK: - 媒体类型
+
+/// 媒体类型枚举
+enum MediaType {
+    case image          // 普通照片
+    case livePhoto      // Live Photo
+    case video          // 视频
+    case panorama       // 全景照片（暂时当作普通照片处理）
+}
+
+// MARK: - Live Photo View
+
+/// Live Photo 视图包装器
+struct LivePhotoView: UIViewRepresentable {
+    let livePhoto: PHLivePhoto
+    @Binding var isPlaying: Bool
+    
+    func makeUIView(context: Context) -> PHLivePhotoView {
+        let view = PHLivePhotoView()
+        view.livePhoto = livePhoto
+        view.contentMode = .scaleAspectFit
+        
+        // 设置代理监听播放状态
+        view.delegate = context.coordinator
+        
+        return view
+    }
+    
+    func updateUIView(_ uiView: PHLivePhotoView, context: Context) {
+        uiView.livePhoto = livePhoto
+        
+        // 如果需要开始播放
+        if isPlaying && !context.coordinator.isCurrentlyPlaying {
+            uiView.startPlayback(with: .full)
+            context.coordinator.isCurrentlyPlaying = true
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(isPlaying: $isPlaying)
+    }
+    
+    class Coordinator: NSObject, PHLivePhotoViewDelegate {
+        @Binding var isPlaying: Bool
+        var isCurrentlyPlaying: Bool = false
+        
+        init(isPlaying: Binding<Bool>) {
+            self._isPlaying = isPlaying
+        }
+        
+        func livePhotoView(_ livePhotoView: PHLivePhotoView, didEndPlaybackWith playbackStyle: PHLivePhotoViewPlaybackStyle) {
+            isPlaying = false
+            isCurrentlyPlaying = false
+        }
+    }
+}
+
+// MARK: - Video Player View
+
+/// 视频播放器包装器
+struct VideoPlayerControlView: View {
+    let player: AVPlayer
+    @Binding var isPlaying: Bool
+    
+    var body: some View {
+        ZStack {
+            // 视频播放器
+            VideoPlayer(player: player)
+                .onAppear {
+                    // 监听播放结束
+                    NotificationCenter.default.addObserver(
+                        forName: .AVPlayerItemDidPlayToEndTime,
+                        object: player.currentItem,
+                        queue: .main
+                    ) { _ in
+                        isPlaying = false
+                        player.seek(to: .zero)
+                    }
+                }
+            
+            // 播放/暂停控制
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    
+                    Button(action: {
+                        if isPlaying {
+                            player.pause()
+                            isPlaying = false
+                        } else {
+                            player.play()
+                            isPlaying = true
+                        }
+                    }) {
+                        Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.system(size: 60))
+                            .foregroundColor(.white)
+                            .shadow(color: .black.opacity(0.3), radius: 5)
+                    }
+                    
+                    Spacer()
+                }
+                Spacer()
+            }
+            .opacity(isPlaying ? 0.0 : 1.0)
+            .animation(.easeInOut(duration: 0.3), value: isPlaying)
+        }
+    }
+}
+
 // 按钮缩放样式
 struct ScaleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
+// MARK: - View Extensions
+
+/// 应用媒体变换效果（缩放、平移、旋转等）
+extension View {
+    func applyMediaTransforms(
+        isZoomed: Bool,
+        currentScale: CGFloat,
+        finalScale: CGFloat,
+        panOffset: CGSize,
+        finalPanOffset: CGSize,
+        dragOffset: CGSize,
+        isDragging: Bool,
+        isDeleting: Bool,
+        deleteDirection: CGFloat,
+        cardRotationFactor: Double
+    ) -> some View {
+        self
+            // 缩放效果
+            .scaleEffect(
+                isZoomed 
+                    ? currentScale * finalScale
+                    : 1.0 + (abs(dragOffset.width) / 1000)
+            )
+            // 平移偏移
+            .offset(
+                x: isZoomed 
+                    ? panOffset.width + finalPanOffset.width
+                    : (isDeleting ? deleteDirection * UIScreen.main.bounds.width * 1.5 : dragOffset.width),
+                y: isZoomed 
+                    ? panOffset.height + finalPanOffset.height
+                    : (isDeleting ? -50 : dragOffset.height * 0.2)
+            )
+            // 旋转效果
+            .rotationEffect(.degrees(isDragging && !isZoomed ? Double(dragOffset.width) * cardRotationFactor : 0))
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isZoomed)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: finalScale)
+            .animation(
+                isDeleting ? .spring(response: 0.5, dampingFraction: 0.8) : .spring(response: 0.3, dampingFraction: 0.7),
+                value: isDeleting
+            )
+            .opacity(isDeleting ? 0 : 1 - Double(abs(dragOffset.width)) / 500)
+    }
+    
+    func applyMediaGestures(
+        isZoomed: Binding<Bool>,
+        currentScale: Binding<CGFloat>,
+        finalScale: Binding<CGFloat>,
+        panOffset: Binding<CGSize>,
+        finalPanOffset: Binding<CGSize>,
+        dragOffset: Binding<CGSize>,
+        isDragging: Binding<Bool>,
+        onMagnificationEnd: @escaping (CGFloat) -> Void,
+        onPanEnd: @escaping (CGSize) -> Void,
+        onDragEnd: @escaping (CGSize) -> Void,
+        onDoubleTap: @escaping () -> Void
+    ) -> some View {
+        self
+            // 双击放大手势
+            .onTapGesture(count: 2) {
+                onDoubleTap()
+            }
+            // 捏合缩放手势
+            .gesture(
+                MagnificationGesture()
+                    .onChanged { value in
+                        currentScale.wrappedValue = value
+                    }
+                    .onEnded { value in
+                        onMagnificationEnd(value)
+                    }
+            )
+            // 拖拽手势
+            .simultaneousGesture(
+                DragGesture()
+                    .onChanged { value in
+                        if isZoomed.wrappedValue {
+                            // 放大状态：平移查看
+                            panOffset.wrappedValue = value.translation
+                        } else {
+                            // 正常状态：导航
+                            isDragging.wrappedValue = true
+                            dragOffset.wrappedValue = value.translation
+                        }
+                    }
+                    .onEnded { value in
+                        if isZoomed.wrappedValue {
+                            onPanEnd(value.translation)
+                        } else {
+                            onDragEnd(value.translation)
+                        }
+                    }
+            )
     }
 }
 
