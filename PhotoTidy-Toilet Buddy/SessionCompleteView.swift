@@ -162,6 +162,14 @@ struct SessionCompleteView: View {
                     icon: "percent"
                 )
                 
+                if viewModel.pendingDeletionCount > 0 {
+                    DetailRow(
+                        title: "待删除照片",
+                        value: "\(viewModel.pendingDeletionCount) 张",
+                        icon: "trash.circle"
+                    )
+                }
+                
                 DetailRow(
                     title: "完成会话次数",
                     value: "\(viewModel.sessionCounter)",
@@ -180,29 +188,45 @@ struct SessionCompleteView: View {
     // MARK: - Start New Session Button
     
     private var startNewSessionButton: some View {
-        Button(action: {
-            handleStartNewSession()
-        }) {
-            HStack(spacing: 12) {
-                Image(systemName: "arrow.clockwise.circle.fill")
-                    .font(.title2)
-                Text("开始新任务")
-                    .font(.headline)
+        VStack(spacing: 12) {
+            // 如果有待删除照片，显示提示
+            if viewModel.pendingDeletionCount > 0 {
+                Text("将批量删除 \(viewModel.pendingDeletionCount) 张照片")
+                    .font(.caption)
+                    .foregroundColor(.orange)
             }
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 18)
-            .background(
-                LinearGradient(
-                    colors: [.blue, .purple],
-                    startPoint: .leading,
-                    endPoint: .trailing
+            
+            Button(action: {
+                handleStartNewSession()
+            }) {
+                HStack(spacing: 12) {
+                    if viewModel.pendingDeletionCount > 0 {
+                        Image(systemName: "trash.circle.fill")
+                            .font(.title3)
+                        Text("确认删除并开始新任务")
+                            .font(.headline)
+                    } else {
+                        Image(systemName: "arrow.clockwise.circle.fill")
+                            .font(.title2)
+                        Text("开始新任务")
+                            .font(.headline)
+                    }
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .background(
+                    LinearGradient(
+                        colors: viewModel.pendingDeletionCount > 0 ? [.orange, .red] : [.blue, .purple],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
                 )
-            )
-            .cornerRadius(15)
-            .shadow(color: .blue.opacity(0.3), radius: 10, x: 0, y: 5)
+                .cornerRadius(15)
+                .shadow(color: (viewModel.pendingDeletionCount > 0 ? Color.orange : Color.blue).opacity(0.3), radius: 10, x: 0, y: 5)
+            }
+            .disabled(showingAd)
         }
-        .disabled(showingAd)
     }
     
     // MARK: - Computed Properties
@@ -220,25 +244,36 @@ struct SessionCompleteView: View {
     // MARK: - Actions
     
     private func handleStartNewSession() {
-        // 检查是否需要显示广告
-        if viewModel.shouldShowAd() {
-            print("达到广告阈值，准备显示广告...")
-            showingAd = true
-            
-            // 显示广告
-            AdManager.shared.showInterstitialAd { [self] in
-                print("广告已关闭，准备开始新会话")
-                showingAd = false
-                
-                // 广告关闭后，重置会话并返回设置界面
-                DispatchQueue.main.async {
-                    viewModel.resetSession()
-                }
+        // 先执行待删除照片的批量删除
+        print("准备执行批量删除...")
+        
+        viewModel.executePendingDeletions { [self] success in
+            if success {
+                print("批量删除完成")
+            } else {
+                print("批量删除失败，但继续流程")
             }
-        } else {
-            // 不需要广告，直接重置会话
-            print("未达到广告阈值，直接开始新会话")
-            viewModel.resetSession()
+            
+            // 删除完成后，检查是否需要显示广告
+            if viewModel.shouldShowAd() {
+                print("达到广告阈值，准备显示广告...")
+                showingAd = true
+                
+                // 显示广告
+                AdManager.shared.showInterstitialAd { [self] in
+                    print("广告已关闭，准备开始新会话")
+                    showingAd = false
+                    
+                    // 广告关闭后，重置会话并返回设置界面
+                    DispatchQueue.main.async {
+                        viewModel.resetSession()
+                    }
+                }
+            } else {
+                // 不需要广告，直接重置会话
+                print("未达到广告阈值，直接开始新会话")
+                viewModel.resetSession()
+            }
         }
     }
 }

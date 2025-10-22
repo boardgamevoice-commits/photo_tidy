@@ -66,13 +66,10 @@ struct CardReviewView: View {
                     topStatusBar
                         .padding(.top, 10)
                     
-                    Spacer()
-                    
-                    // 照片卡片
+                    // 照片卡片 - 占据主要空间
                     photoCardView
-                        .padding(.horizontal, 20)
-                    
-                    Spacer()
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 15)
                     
                     // 底部决策按钮 (F-06)
                     bottomActionButtons
@@ -310,7 +307,7 @@ struct CardReviewView: View {
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
-        .aspectRatio(4/3, contentMode: .fit)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     // MARK: - Bottom Action Buttons (F-06)

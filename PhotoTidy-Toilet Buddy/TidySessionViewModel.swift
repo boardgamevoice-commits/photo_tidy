@@ -110,6 +110,11 @@ class TidySessionViewModel: ObservableObject {
         return currentIndex < totalPhotos - 1
     }
     
+    /// 待删除照片数量
+    var pendingDeletionCount: Int {
+        return pendingDeletions.count
+    }
+    
     // MARK: - Private Properties
     
     private let photoService = PhotoService.shared
@@ -182,45 +187,26 @@ class TidySessionViewModel: ObservableObject {
     }
     
     /// 删除当前照片并移动到下一张
+    /// 注意：使用延迟删除策略，照片会在会话结束时批量删除
     func deleteCurrentPhoto() {
         guard let currentPhoto = currentPhoto else {
             print("没有当前照片可删除")
             return
         }
         
-        print("删除当前照片，索引: \(currentIndex)")
+        print("标记删除当前照片，索引: \(currentIndex) (延迟删除)")
         
         // 记录删除信息用于撤销
         lastDeletedAsset = currentPhoto.asset
         lastDeletedIndex = currentIndex
         
-        // 添加到待删除队列
+        // 添加到待删除队列（延迟删除策略）
         pendingDeletions.append(currentPhoto.asset)
         
-        // 立即执行删除
-        photoService.deleteAsset(asset: currentPhoto.asset) { [weak self] success, error in
-            guard let self = self else { return }
-            
-            Task { @MainActor in
-                if success {
-                    print("照片删除成功")
-                    self.deletedCount += 1
-                    
-                    // 从待删除队列中移除
-                    if let index = self.pendingDeletions.firstIndex(where: { $0.localIdentifier == currentPhoto.asset.localIdentifier }) {
-                        self.pendingDeletions.remove(at: index)
-                    }
-                    
-                } else {
-                    print("照片删除失败: \(error?.localizedDescription ?? "未知错误")")
-                    self.errorMessage = "删除失败: \(error?.localizedDescription ?? "未知错误")"
-                    
-                    // 清除撤销信息
-                    self.lastDeletedAsset = nil
-                    self.lastDeletedIndex = nil
-                }
-            }
-        }
+        // 增加删除计数（UI 显示）
+        deletedCount += 1
+        
+        print("已添加到待删除队列，当前队列大小: \(pendingDeletions.count)")
         
         // 移动到下一张
         moveToNextPhotoAfterAction()
@@ -305,6 +291,7 @@ class TidySessionViewModel: ObservableObject {
     // MARK: - 撤销操作
     
     /// 撤销最后一次删除操作
+    /// 使用延迟删除策略时，可以真正恢复照片（从待删除队列中移除）
     func undoLastDeletion() {
         guard let deletedAsset = lastDeletedAsset,
               let deletedIndex = lastDeletedIndex else {
@@ -314,38 +301,25 @@ class TidySessionViewModel: ObservableObject {
         
         print("撤销删除操作，恢复照片索引: \(deletedIndex)")
         
-        // 注意：iOS Photos 框架不支持直接撤销删除
-        // 这里我们只能在 UI 层面"恢复"这张照片的显示
-        // 但实际的照片已经进入系统的"最近删除"相册
-        
-        // 尝试从 PhotoService 恢复（虽然会失败，但保持 API 一致性）
-        photoService.restoreAsset(asset: deletedAsset) { [weak self] success, error in
-            guard let self = self else { return }
-            
-            Task { @MainActor in
-                if success {
-                    print("照片恢复成功（罕见情况）")
-                } else {
-                    print("照片恢复失败（预期行为）: \(error?.localizedDescription ?? "")")
-                    // 这是预期的，iOS 不支持直接恢复
-                }
-                
-                // 无论恢复是否成功，都更新 UI 状态
-                // 减少删除计数
-                if self.deletedCount > 0 {
-                    self.deletedCount -= 1
-                }
-                
-                // 跳回到被删除照片的位置
-                self.jumpToIndex(deletedIndex)
-                
-                // 清除撤销信息
-                self.lastDeletedAsset = nil
-                self.lastDeletedIndex = nil
-                
-                print("撤销操作完成，当前索引: \(self.currentIndex)")
-            }
+        // 从待删除队列中移除这张照片
+        if let queueIndex = pendingDeletions.firstIndex(where: { $0.localIdentifier == deletedAsset.localIdentifier }) {
+            pendingDeletions.remove(at: queueIndex)
+            print("已从待删除队列中移除，剩余待删除: \(pendingDeletions.count)")
         }
+        
+        // 减少删除计数
+        if deletedCount > 0 {
+            deletedCount -= 1
+        }
+        
+        // 跳回到被删除照片的位置
+        jumpToIndex(deletedIndex)
+        
+        // 清除撤销信息
+        lastDeletedAsset = nil
+        lastDeletedIndex = nil
+        
+        print("撤销操作完成，当前索引: \(currentIndex)")
     }
     
     // MARK: - 会话管理
@@ -385,28 +359,49 @@ class TidySessionViewModel: ObservableObject {
     }
     
     /// 结束会话
+    /// 注意：此时会批量删除所有待删除的照片（只弹出一次系统确认框）
     func endSession() {
         print("结束会话，删除: \(deletedCount), 保留: \(keptCount)")
         
-        // 执行所有待删除操作
-        if !pendingDeletions.isEmpty {
-            print("执行 \(pendingDeletions.count) 个待删除操作")
-            photoService.deleteAssets(assets: pendingDeletions) { success, error in
-                if success {
-                    print("批量删除成功")
-                } else {
-                    print("批量删除失败: \(error?.localizedDescription ?? "")")
-                }
-            }
-            pendingDeletions.removeAll()
-        }
+        // 标记会话已完成（先更新 UI）
+        isSessionActive = false
+        isSessionCompleted = true
         
         // 增加会话计数器
         sessionCounter += 1
         print("会话计数器更新: \(sessionCounter)")
         
-        isSessionActive = false
-        isSessionCompleted = true
+        // 注意：实际删除操作移到 SessionCompleteView 中
+        // 这样用户可以在完成总结界面看到统计后再确认删除
+        print("待删除队列保留，共 \(pendingDeletions.count) 张照片待删除")
+    }
+    
+    /// 执行待删除照片的批量删除
+    /// 此方法应该在用户确认后调用（例如在 SessionCompleteView 中）
+    func executePendingDeletions(completion: @escaping (Bool) -> Void) {
+        guard !pendingDeletions.isEmpty else {
+            print("没有待删除的照片")
+            completion(true)
+            return
+        }
+        
+        print("开始批量删除 \(pendingDeletions.count) 张照片...")
+        
+        photoService.deleteAssets(assets: pendingDeletions) { [weak self] success, error in
+            guard let self = self else { return }
+            
+            Task { @MainActor in
+                if success {
+                    print("批量删除成功！共 \(self.pendingDeletions.count) 张照片")
+                    self.pendingDeletions.removeAll()
+                    completion(true)
+                } else {
+                    print("批量删除失败: \(error?.localizedDescription ?? "未知错误")")
+                    self.errorMessage = "批量删除失败: \(error?.localizedDescription ?? "未知错误")"
+                    completion(false)
+                }
+            }
+        }
     }
     
     /// 检查是否应该显示广告
