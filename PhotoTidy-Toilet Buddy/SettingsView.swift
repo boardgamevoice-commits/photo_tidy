@@ -25,10 +25,13 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             List {
-                // Section 1: 数据和统计
+                // Section 1: 外观设置
+                appearanceSection
+                
+                // Section 2: 数据和统计
                 dataAndStatsSection
                 
-                // Section 2: 关于应用
+                // Section 3: 关于应用
                 aboutSection
             }
             .listStyle(.insetGrouped)
@@ -68,7 +71,64 @@ struct SettingsView: View {
         }
     }
     
-    // MARK: - Section 1: 数据和统计
+    // MARK: - Section 1: 外观设置
+    
+    private var appearanceSection: some View {
+        Section {
+            // 主题选择
+            ForEach(AppTheme.allCases) { theme in
+                Button(action: {
+                    withAnimation(.spring(response: 0.3)) {
+                        settingsManager.settings.theme = theme
+                    }
+                }) {
+                    HStack(spacing: 12) {
+                        // 主题图标
+                        ZStack {
+                            Circle()
+                                .fill(settingsManager.settings.theme == theme ? Color.blue : Color.gray.opacity(0.2))
+                                .frame(width: 40, height: 40)
+                            
+                            Image(systemName: theme.icon)
+                                .font(.system(size: 18))
+                                .foregroundColor(settingsManager.settings.theme == theme ? .white : .gray)
+                        }
+                        
+                        // 主题信息
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(theme.rawValue)
+                                .font(.subheadline)
+                                .fontWeight(settingsManager.settings.theme == theme ? .semibold : .regular)
+                                .foregroundColor(.primary)
+                            
+                            Text(theme.description)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        // 选中标记
+                        if settingsManager.settings.theme == theme {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.blue)
+                                .font(.system(size: 22))
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            
+        } header: {
+            SettingsSectionHeader(icon: "paintbrush.fill", title: "外观")
+        } footer: {
+            Text("选择应用的外观主题，跟随系统时会自动适应系统的浅色/深色模式设置")
+                .font(.caption)
+        }
+    }
+    
+    // MARK: - Section 2: 数据和统计
     
     private var dataAndStatsSection: some View {
         Section {
@@ -158,7 +218,7 @@ struct SettingsView: View {
         }
     }
     
-    // MARK: - Section 2: 关于应用
+    // MARK: - Section 3: 关于应用
     
     private var aboutSection: some View {
         Section {

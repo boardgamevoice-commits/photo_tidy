@@ -15,14 +15,15 @@ struct ContentView: View {
         Group {
             if viewModel.isLoading {
                 ZStack {
-                    Color.black.ignoresSafeArea()
+                    // 使用系统背景色以适配浅色/深色模式
+                    Color(.systemBackground).ignoresSafeArea()
                     VStack(spacing: 20) {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .progressViewStyle(CircularProgressViewStyle(tint: .blue))
                             .scaleEffect(1.5)
                         Text("加载中...")
                             .font(.headline)
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                     }
                 }
             } else if viewModel.isSessionCompleted {

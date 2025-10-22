@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftUI
 import Combine
 
 /// 设置管理器 - 负责设置的保存和加载
@@ -31,6 +32,13 @@ class SettingsManager: ObservableObject {
     
     // 触发器：当统计数据更新时，改变此值以触发 UI 刷新
     @Published private(set) var statisticsUpdateTrigger: Int = 0
+    
+    // MARK: - Computed Properties
+    
+    /// 当前主题的 ColorScheme
+    var currentColorScheme: ColorScheme? {
+        return settings.theme.colorScheme
+    }
     
     // MARK: - Statistics (只读)
     
