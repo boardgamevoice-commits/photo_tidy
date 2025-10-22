@@ -60,11 +60,23 @@ struct AdvancedFilterView: View {
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("完成") {
-                        applyFilters()
-                        dismiss()
+                    HStack(spacing: 16) {
+                        Button(action: resetAllFilters) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.counterclockwise")
+                                    .font(.system(size: 14))
+                                Text("重置")
+                                    .font(.subheadline)
+                            }
+                            .foregroundColor(.orange)
+                        }
+                        
+                        Button("完成") {
+                            applyFilters()
+                            dismiss()
+                        }
+                        .fontWeight(.semibold)
                     }
-                    .fontWeight(.semibold)
                 }
             }
         }
@@ -328,6 +340,13 @@ struct AdvancedFilterView: View {
     
     private func applyFilters() {
         filterConfig = tempConfig
+    }
+    
+    private func resetAllFilters() {
+        withAnimation(.spring(response: 0.3)) {
+            // 重置所有过滤选项到默认值
+            tempConfig = FilterConfiguration()
+        }
     }
 }
 
