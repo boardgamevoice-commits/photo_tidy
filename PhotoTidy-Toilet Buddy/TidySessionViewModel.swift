@@ -465,6 +465,13 @@ class TidySessionViewModel: ObservableObject {
         sessionCounter += 1
         print("会话计数器更新: \(sessionCounter)")
         
+        // 更新统计数据到 SettingsManager
+        SettingsManager.shared.updateStatistics(
+            reviewedCount: totalPhotos,
+            deletedCount: deletedCount,
+            freedSpace: estimatedStorageToFree
+        )
+        
         // 注意：实际删除操作移到 SessionCompleteView 中
         // 这样用户可以在完成总结界面看到统计后再确认删除
         print("待删除队列保留，共 \(pendingDeletions.count) 张照片待删除")

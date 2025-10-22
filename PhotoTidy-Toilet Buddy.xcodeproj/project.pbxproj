@@ -18,6 +18,9 @@
 		A1000031000000000000001 /* AdvancedFilterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000032000000000000001 /* AdvancedFilterView.swift */; };
 		A1000033000000000000001 /* CardReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000034000000000000001 /* CardReviewView.swift */; };
 		A1000035000000000000001 /* SessionCompleteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000036000000000000001 /* SessionCompleteView.swift */; };
+		A1000037000000000000001 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000038000000000000001 /* Settings.swift */; };
+		A1000039000000000000001 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000040000000000000001 /* SettingsManager.swift */; };
+		A1000041000000000000001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000042000000000000001 /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +37,9 @@
 		A1000032000000000000001 /* AdvancedFilterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedFilterView.swift; sourceTree = "<group>"; };
 		A1000034000000000000001 /* CardReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardReviewView.swift; sourceTree = "<group>"; };
 		A1000036000000000000001 /* SessionCompleteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCompleteView.swift; sourceTree = "<group>"; };
+		A1000038000000000000001 /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
+		A1000040000000000000001 /* SettingsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsManager.swift; sourceTree = "<group>"; };
+		A1000042000000000000001 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A3CAAB1287CD5FA3B8E9A908 /* Pods_PhotoTidy_Toilet_Buddy.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_PhotoTidy_Toilet_Buddy.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C3F7062DCAA2022517302655 /* Pods-PhotoTidy-Toilet Buddy.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PhotoTidy-Toilet Buddy.release.xcconfig"; path = "Target Support Files/Pods-PhotoTidy-Toilet Buddy/Pods-PhotoTidy-Toilet Buddy.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -86,6 +92,9 @@
 				A1000034000000000000001 /* CardReviewView.swift */,
 				A1000036000000000000001 /* SessionCompleteView.swift */,
 				A1000032000000000000001 /* AdvancedFilterView.swift */,
+				A1000038000000000000001 /* Settings.swift */,
+				A1000040000000000000001 /* SettingsManager.swift */,
+				A1000042000000000000001 /* SettingsView.swift */,
 				A1000028000000000000001 /* TidySessionViewModel.swift */,
 				A1000006000000000000001 /* AdManager.swift */,
 				A1000026000000000000001 /* PhotoService.swift */,
@@ -221,6 +230,9 @@
 				A1000033000000000000001 /* CardReviewView.swift in Sources */,
 				A1000035000000000000001 /* SessionCompleteView.swift in Sources */,
 				A1000031000000000000001 /* AdvancedFilterView.swift in Sources */,
+				A1000037000000000000001 /* Settings.swift in Sources */,
+				A1000039000000000000001 /* SettingsManager.swift in Sources */,
+				A1000041000000000000001 /* SettingsView.swift in Sources */,
 				A1000027000000000000001 /* TidySessionViewModel.swift in Sources */,
 				A1000005000000000000001 /* AdManager.swift in Sources */,
 				A1000025000000000000001 /* PhotoService.swift in Sources */,

@@ -18,6 +18,7 @@ struct SessionSetupView: View {
     @State private var filterConfig: FilterConfiguration = FilterConfiguration()
     @State private var showingAdvancedFilter = false
     @State private var showingError = false
+    @State private var showingSettings = false
     
     // MARK: - UserDefaults Keys
     
@@ -56,8 +57,22 @@ struct SessionSetupView: View {
             }
             .navigationTitle("设置会话")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        showingSettings = true
+                    }) {
+                        Image(systemName: "gearshape")
+                            .font(.title3)
+                            .foregroundColor(.blue)
+                    }
+                }
+            }
             .sheet(isPresented: $showingAdvancedFilter) {
                 AdvancedFilterView(filterConfig: $filterConfig)
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
             }
             .onChange(of: filterConfig) { _ in
                 saveUserPreferences()
@@ -347,25 +362,23 @@ struct SessionSetupView: View {
     
     // MARK: - UserDefaults Persistence
     
-    /// 加载用户偏好设置
+    /// 加载用户偏好设置（自动恢复上一次的选择）
     private func loadUserPreferences() {
         let defaults = UserDefaults.standard
         
-        // 加载照片数量
+        // 加载上一次的照片数量
         if defaults.object(forKey: photoCountKey) != nil {
             let savedCount = defaults.double(forKey: photoCountKey)
-            // 确保值在有效范围内
             photoCount = min(max(savedCount, 10), 100)
+            print("已加载上次照片数量：\(Int(photoCount))")
         }
         
-        // 加载过滤配置（使用 Codable）
+        // 加载上一次的过滤配置
         if let data = defaults.data(forKey: filterConfigKey),
            let decoded = try? JSONDecoder().decode(FilterConfiguration.self, from: data) {
             filterConfig = decoded
-            print("已加载过滤配置：\(filterConfig.summary)")
+            print("已加载上次过滤配置：\(filterConfig.summary)")
         }
-        
-        print("已加载用户偏好设置：photoCount=\(Int(photoCount)), filterConfig=\(filterConfig.summary)")
     }
     
     /// 保存用户偏好设置
