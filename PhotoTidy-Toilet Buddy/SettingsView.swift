@@ -409,7 +409,7 @@ struct SettingsView: View {
     
     private func openFeedback() {
         // TODO: 实现反馈功能（邮件或者反馈表单）
-        let email = "feedback@phototidy.app"
+        let email = "fangdev1063@gmail.com"
         if let url = URL(string: "mailto:\(email)") {
             UIApplication.shared.open(url)
         }
