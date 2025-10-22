@@ -266,13 +266,14 @@ class PhotoService: NSObject {
         print("尝试恢复照片，ID: \(identifier)")
         
         // 获取 "最近删除" 相册
-        let recentlyDeletedFetchResult = PHAssetCollection.fetchAssetCollections(
+        // 注意：iOS 不提供直接访问 "最近删除" 相册的 API
+        let _ = PHAssetCollection.fetchAssetCollections(
             with: .smartAlbum,
             subtype: .smartAlbumRecentlyAdded,
             options: nil
         )
         
-        // 注意：iOS 不提供直接访问 "最近删除" 相册的 API
+        // 备注：以上代码仅用于演示，实际上 iOS 不提供直接访问 "最近删除" 相册的 API
         // 实际上，PHAssetCollection.Subtype 中没有 .smartAlbumRecentlyDeleted
         // 这是 iOS 系统的限制，第三方 App 无法直接操作 "最近删除" 相册
         

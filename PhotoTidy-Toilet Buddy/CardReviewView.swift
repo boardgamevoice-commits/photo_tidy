@@ -462,7 +462,7 @@ struct CardReviewView: View {
         isLoadingImage = true
         currentImage = nil
         
-        guard let photo = viewModel.currentPhoto else {
+        guard viewModel.currentPhoto != nil else {
             isLoadingImage = false
             return
         }
