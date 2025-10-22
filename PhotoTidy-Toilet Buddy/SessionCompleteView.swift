@@ -33,10 +33,10 @@ struct SessionCompleteView: View {
                     
                     // 标题
                     VStack(spacing: 10) {
-                        Text("会话完成！")
+                        Text(L10n.SessionComplete.title)
                             .font(.system(size: 36, weight: .bold, design: .rounded))
                         
-                        Text("干得漂亮！")
+                        Text(L10n.SessionComplete.subtitle)
                             .font(.title3)
                             .foregroundColor(.secondary)
                     }
@@ -113,7 +113,7 @@ struct SessionCompleteView: View {
             // 删除统计
             StatRow(
                 icon: "trash.fill",
-                label: "已删除",
+                label: L10n.SessionComplete.deleted,
                 value: viewModel.deletedCount,
                 color: .red,
                 isAnimated: animateStats
@@ -124,7 +124,7 @@ struct SessionCompleteView: View {
             // 保留统计
             StatRow(
                 icon: "hand.thumbsup.fill",
-                label: "已保留",
+                label: L10n.SessionComplete.kept,
                 value: viewModel.keptCount,
                 color: .green,
                 isAnimated: animateStats
@@ -135,7 +135,7 @@ struct SessionCompleteView: View {
             // 总计
             StatRow(
                 icon: "photo.fill",
-                label: "审阅总数",
+                label: L10n.SessionComplete.total,
                 value: viewModel.totalPhotos,
                 color: .blue,
                 isAnimated: animateStats
@@ -156,34 +156,34 @@ struct SessionCompleteView: View {
             HStack {
                 Image(systemName: "chart.bar.fill")
                     .foregroundColor(.purple)
-                Text("会话详情")
+                Text(L10n.SessionComplete.details)
                     .font(.headline)
             }
             
             VStack(spacing: 12) {
                 DetailRow(
-                    title: "删除率",
+                    title: L10n.SessionComplete.deletionRate,
                     value: "\(deletionPercentage)%",
                     icon: "percent"
                 )
                 
                 DetailRow(
-                    title: "保留率",
+                    title: L10n.SessionComplete.keepRate,
                     value: "\(keepPercentage)%",
                     icon: "percent"
                 )
                 
                 if viewModel.pendingDeletionCount > 0 {
                     DetailRow(
-                        title: "待删除照片",
-                        value: "\(viewModel.pendingDeletionCount) 张",
+                        title: L10n.SessionComplete.pendingDeletion,
+                        value: L10n.SessionComplete.pendingDeletionCount(viewModel.pendingDeletionCount),
                         icon: "trash.circle"
                     )
                     
                     // 存储空间估算
                     if viewModel.estimatedStorageToFree > 0 {
                         DetailRow(
-                            title: "预计释放空间",
+                            title: L10n.SessionComplete.estimatedSpace,
                             value: viewModel.formattedStorageToFree,
                             icon: "arrow.down.circle"
                         )
@@ -191,7 +191,7 @@ struct SessionCompleteView: View {
                 }
                 
                 DetailRow(
-                    title: "完成会话次数",
+                    title: L10n.SessionComplete.sessionCount,
                     value: "\(viewModel.sessionCounter)",
                     icon: "number"
                 )
@@ -211,7 +211,7 @@ struct SessionCompleteView: View {
         VStack(spacing: 12) {
             // 如果有待删除照片，显示提示
             if viewModel.pendingDeletionCount > 0 {
-                Text("将批量删除 \(viewModel.pendingDeletionCount) 张照片")
+                Text(L10n.SessionComplete.willDeleteCount(viewModel.pendingDeletionCount))
                     .font(.caption)
                     .foregroundColor(.orange)
             }
@@ -223,12 +223,12 @@ struct SessionCompleteView: View {
                     if viewModel.pendingDeletionCount > 0 {
                         Image(systemName: "trash.circle.fill")
                             .font(.title3)
-                        Text("确认删除并开始新任务")
+                        Text(L10n.Button.confirmDeleteAndStart)
                             .font(.headline)
                     } else {
                         Image(systemName: "arrow.clockwise.circle.fill")
                             .font(.title2)
-                        Text("开始新任务")
+                        Text(L10n.Button.startNew)
                             .font(.headline)
                     }
                 }
@@ -277,7 +277,7 @@ struct SessionCompleteView: View {
                 }
                 
                 // 标题
-                Text("正在删除照片")
+                Text(L10n.Loading.deleting)
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(.white)
@@ -316,7 +316,7 @@ struct SessionCompleteView: View {
                 }
                 
                 // 提示文字
-                Text("请稍候，正在处理...")
+                Text(L10n.Loading.pleaseWait)
                     .font(.subheadline)
                     .foregroundColor(.white.opacity(0.7))
             }

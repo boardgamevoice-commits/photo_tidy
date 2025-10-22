@@ -19,6 +19,8 @@ struct SettingsView: View {
     @State private var showingClearStatsAlert = false
     @State private var showingSuccessToast = false
     @State private var toastMessage = ""
+    @State private var showingLanguageChangeAlert = false
+    @State private var previousLanguage: AppLanguage?
     
     // MARK: - Body
     
@@ -28,18 +30,21 @@ struct SettingsView: View {
                 // Section 1: 外观设置
                 appearanceSection
                 
-                // Section 2: 数据和统计
+                // Section 2: 语言设置
+                languageSection
+                
+                // Section 3: 数据和统计
                 dataAndStatsSection
                 
-                // Section 3: 关于应用
+                // Section 4: 关于应用
                 aboutSection
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("设置")
+            .navigationTitle(L10n.Settings.title)
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("完成") {
+                    Button(L10n.Button.done) {
                         dismiss()
                     }
                     .fontWeight(.semibold)
@@ -52,21 +57,28 @@ struct SettingsView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            .alert("重置所有设置", isPresented: $showingResetAlert) {
-                Button("取消", role: .cancel) {}
-                Button("重置", role: .destructive) {
+            .alert(L10n.Alert.ResetSettings.title, isPresented: $showingResetAlert) {
+                Button(L10n.Button.cancel, role: .cancel) {}
+                Button(L10n.Button.reset, role: .destructive) {
                     resetAllSettings()
                 }
             } message: {
-                Text("这将恢复所有设置为默认值，但不会影响统计数据。")
+                Text(L10n.Alert.ResetSettings.message)
             }
-            .alert("清除统计数据", isPresented: $showingClearStatsAlert) {
-                Button("取消", role: .cancel) {}
-                Button("清除", role: .destructive) {
+            .alert(L10n.Alert.ClearStats.title, isPresented: $showingClearStatsAlert) {
+                Button(L10n.Button.cancel, role: .cancel) {}
+                Button(L10n.Button.clear, role: .destructive) {
                     clearStatistics()
                 }
             } message: {
-                Text("这将永久删除所有统计数据，此操作无法撤销。")
+                Text(L10n.Alert.ClearStats.message)
+            }
+            .alert(L10n.Alert.hint, isPresented: $showingLanguageChangeAlert) {
+                Button(L10n.Button.confirm) {
+                    showingLanguageChangeAlert = false
+                }
+            } message: {
+                Text(L10n.Settings.restartRequired)
             }
         }
     }
@@ -96,7 +108,7 @@ struct SettingsView: View {
                         
                         // 主题信息
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(theme.rawValue)
+                            Text(theme.localizedName)
                                 .font(.subheadline)
                                 .fontWeight(settingsManager.settings.theme == theme ? .semibold : .regular)
                                 .foregroundColor(.primary)
@@ -121,42 +133,105 @@ struct SettingsView: View {
             }
             
         } header: {
-            SettingsSectionHeader(icon: "paintbrush.fill", title: "外观")
+            SettingsSectionHeader(icon: "paintbrush.fill", title: L10n.Settings.appearance)
         } footer: {
-            Text("选择应用的外观主题，跟随系统时会自动适应系统的浅色/深色模式设置")
+            Text(L10n.Settings.themeDescription)
                 .font(.caption)
         }
     }
     
-    // MARK: - Section 2: 数据和统计
+    // MARK: - Section 2: 语言设置
+    
+    private var languageSection: some View {
+        Section {
+            ForEach(AppLanguage.allCases) { language in
+                Button(action: {
+                    if settingsManager.settings.language != language {
+                        previousLanguage = settingsManager.settings.language
+                        withAnimation(.spring(response: 0.3)) {
+                            settingsManager.settings.language = language
+                        }
+                        // 应用语言变更
+                        applyLanguageChange(language)
+                        // 显示重启提示
+                        showingLanguageChangeAlert = true
+                    }
+                }) {
+                    HStack(spacing: 12) {
+                        // 语言图标
+                        ZStack {
+                            Circle()
+                                .fill(settingsManager.settings.language == language ? Color.blue : Color.gray.opacity(0.2))
+                                .frame(width: 40, height: 40)
+                            
+                            Image(systemName: language.icon)
+                                .font(.system(size: 18))
+                                .foregroundColor(settingsManager.settings.language == language ? .white : .gray)
+                        }
+                        
+                        // 语言信息
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(language.localizedName)
+                                .font(.subheadline)
+                                .fontWeight(settingsManager.settings.language == language ? .semibold : .regular)
+                                .foregroundColor(.primary)
+                            
+                            Text(language.description)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        // 选中标记
+                        if settingsManager.settings.language == language {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.blue)
+                                .font(.system(size: 22))
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            
+        } header: {
+            SettingsSectionHeader(icon: "globe", title: L10n.Settings.language)
+        } footer: {
+            Text(L10n.Settings.languageDescription)
+                .font(.caption)
+        }
+    }
+    
+    // MARK: - Section 3: 数据和统计
     
     private var dataAndStatsSection: some View {
         Section {
             // 统计数据展示
             StatisticRow(
                 icon: "photo.fill",
-                label: "已审阅照片总数",
+                label: L10n.Settings.totalReviewed,
                 value: "\(settingsManager.totalReviewedPhotos)",
                 color: .blue
             )
             
             StatisticRow(
                 icon: "trash.fill",
-                label: "已删除照片总数",
+                label: L10n.Settings.totalDeleted,
                 value: "\(settingsManager.totalDeletedPhotos)",
                 color: .red
             )
             
             StatisticRow(
                 icon: "arrow.down.circle.fill",
-                label: "累计释放空间",
+                label: L10n.Settings.totalFreedSpace,
                 value: settingsManager.formattedTotalFreedSpace(),
                 color: .green
             )
             
             StatisticRow(
                 icon: "checkmark.circle.fill",
-                label: "完成会话次数",
+                label: L10n.Settings.totalSessions,
                 value: "\(settingsManager.totalSessions)",
                 color: .purple
             )
@@ -169,7 +244,7 @@ struct SettingsView: View {
                     Image(systemName: "trash.circle.fill")
                         .foregroundColor(.red)
                         .frame(width: 30)
-                    Text("清除统计数据")
+                    Text(L10n.Settings.clearStats)
                         .font(.subheadline)
                         .foregroundColor(.red)
                 }
@@ -183,7 +258,7 @@ struct SettingsView: View {
                     Image(systemName: "arrow.counterclockwise.circle.fill")
                         .foregroundColor(.orange)
                         .frame(width: 30)
-                    Text("重置所有设置")
+                    Text(L10n.Settings.resetSettings)
                         .font(.subheadline)
                         .foregroundColor(.orange)
                 }
@@ -197,7 +272,7 @@ struct SettingsView: View {
                     Image(systemName: "photo.badge.plus")
                         .foregroundColor(.blue)
                         .frame(width: 30)
-                    Text("查看照片库权限")
+                    Text(L10n.Settings.photoPermission)
                         .font(.subheadline)
                     Spacer()
                     Image(systemName: "arrow.up.right.square")
@@ -207,18 +282,18 @@ struct SettingsView: View {
             }
             
         } header: {
-            SettingsSectionHeader(icon: "chart.bar.fill", title: "数据和统计")
+            SettingsSectionHeader(icon: "chart.bar.fill", title: L10n.Settings.dataAndStats)
         } footer: {
             VStack(alignment: .leading, spacing: 8) {
-                Text("所有操作均在本地进行，不会上传任何数据")
+                Text(L10n.Settings.dataLocalOnly)
                     .font(.caption)
-                Text("统计数据用于帮助您了解使用情况")
+                Text(L10n.Settings.statsHelp)
                     .font(.caption)
             }
         }
     }
     
-    // MARK: - Section 3: 关于应用
+    // MARK: - Section 4: 关于应用
     
     private var aboutSection: some View {
         Section {
@@ -227,7 +302,7 @@ struct SettingsView: View {
                 Image(systemName: "info.circle")
                     .foregroundColor(.blue)
                     .frame(width: 30)
-                Text("应用版本")
+                Text(L10n.Settings.appVersion)
                     .font(.subheadline)
                 Spacer()
                 Text(appVersion)
@@ -240,10 +315,10 @@ struct SettingsView: View {
                 Image(systemName: "person.circle")
                     .foregroundColor(.blue)
                     .frame(width: 30)
-                Text("开发者")
+                Text(L10n.Settings.developer)
                     .font(.subheadline)
                 Spacer()
-                Text("Photo Tidy Team")
+                Text(L10n.Settings.developerName)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
@@ -256,7 +331,7 @@ struct SettingsView: View {
                     Image(systemName: "envelope.fill")
                         .foregroundColor(.blue)
                         .frame(width: 30)
-                    Text("反馈和建议")
+                    Text(L10n.Settings.feedback)
                         .font(.subheadline)
                     Spacer()
                     Image(systemName: "arrow.up.right.square")
@@ -273,7 +348,7 @@ struct SettingsView: View {
                     Image(systemName: "hand.raised.fill")
                         .foregroundColor(.blue)
                         .frame(width: 30)
-                    Text("隐私政策")
+                    Text(L10n.Settings.privacyPolicy)
                         .font(.subheadline)
                     Spacer()
                     Image(systemName: "arrow.up.right.square")
@@ -283,7 +358,7 @@ struct SettingsView: View {
             }
             
         } header: {
-            SettingsSectionHeader(icon: "info.circle", title: "关于")
+            SettingsSectionHeader(icon: "info.circle", title: L10n.Settings.about)
         }
     }
     
@@ -291,12 +366,25 @@ struct SettingsView: View {
     
     private func resetAllSettings() {
         settingsManager.resetSettings()
-        showToast("设置已重置为默认值")
+        showToast(L10n.Toast.settingsReset)
     }
     
     private func clearStatistics() {
         settingsManager.clearStatistics()
-        showToast("统计数据已清除")
+        showToast(L10n.Toast.statsCleared)
+    }
+    
+    private func applyLanguageChange(_ language: AppLanguage) {
+        // 设置应用语言偏好（通过 UserDefaults 持久化）
+        if let languageCode = language.languageCode {
+            UserDefaults.standard.set([languageCode], forKey: "AppleLanguages")
+            print("✅ 已设置应用语言为: \(languageCode)")
+        } else {
+            // 清除设置，跟随系统
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+            print("✅ 已设置应用语言为：跟随系统")
+        }
+        UserDefaults.standard.synchronize()
     }
     
     private func showToast(_ message: String) {

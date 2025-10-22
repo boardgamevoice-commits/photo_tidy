@@ -21,7 +21,7 @@ struct ContentView: View {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .blue))
                             .scaleEffect(1.5)
-                        Text("加载中...")
+                        Text(L10n.Loading.general)
                             .font(.headline)
                             .foregroundColor(.primary)
                     }
@@ -37,13 +37,13 @@ struct ContentView: View {
                 CardReviewView(viewModel: viewModel)
             }
         }
-        .alert("错误", isPresented: .constant(viewModel.errorMessage != nil)) {
-            Button("确定") {
+        .alert(L10n.Error.title, isPresented: .constant(viewModel.errorMessage != nil)) {
+            Button(L10n.Button.confirm) {
                 viewModel.errorMessage = nil
             }
             // 如果是权限错误，提供前往设置的选项
-            if let error = viewModel.errorMessage, error.contains("权限") {
-                Button("前往设置") {
+            if let error = viewModel.errorMessage, error.contains(L10n.Error.permission) {
+                Button(L10n.Button.goToSettings) {
                     openSettings()
                     viewModel.errorMessage = nil
                 }

@@ -82,6 +82,22 @@ class SettingsManager: ObservableObject {
             self.settings = Settings()
             print("ℹ️ 使用默认设置")
         }
+        
+        // 应用保存的语言设置
+        applyLanguagePreference()
+    }
+    
+    /// 应用语言偏好设置
+    private func applyLanguagePreference() {
+        if let languageCode = settings.language.languageCode {
+            UserDefaults.standard.set([languageCode], forKey: "AppleLanguages")
+            print("🌍 应用语言设置: \(languageCode)")
+        } else {
+            // 跟随系统语言
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+            print("🌍 应用语言设置: 跟随系统")
+        }
+        UserDefaults.standard.synchronize()
     }
     
     // MARK: - Settings Management

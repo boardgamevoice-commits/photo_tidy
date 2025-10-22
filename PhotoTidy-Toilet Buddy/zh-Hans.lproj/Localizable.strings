@@ -1,0 +1,226 @@
+/* 
+ * Localizable.strings (Chinese Simplified)
+ * Photo Tidy - Toilet Buddy
+ */
+
+/* 通用 */
+"app.name" = "Photo Tidy";
+"app.subtitle" = "马桶伴侣";
+"app.tagline" = "随机选取照片，轻松整理您的相册";
+
+/* 按钮 */
+"button.cancel" = "取消";
+"button.done" = "完成";
+"button.confirm" = "确定";
+"button.start" = "开始整理";
+"button.start_new" = "开始新任务";
+"button.start_new_session" = "开始新会话";
+"button.retry" = "重试";
+"button.skip" = "跳过";
+"button.delete" = "删除";
+"button.keep" = "保留";
+"button.undo" = "撤销";
+"button.reset" = "重置";
+"button.go_to_settings" = "前往设置";
+"button.continue_trying" = "继续尝试";
+"button.skip_all_failed" = "跳过所有错误照片";
+"button.confirm_delete_and_start" = "确认删除并开始新任务";
+"button.clear" = "清除";
+
+/* 加载状态 */
+"loading.general" = "加载中...";
+"loading.photo" = "正在加载照片...";
+"loading.deleting" = "正在删除照片";
+"loading.please_wait" = "请稍候，正在处理...";
+
+/* 会话设置 */
+"session.setup.title" = "设置会话";
+"session.setup.photo_count" = "选择照片数量";
+"session.setup.unit.photo" = "张";
+"session.setup.preset.quick" = "快速";
+"session.setup.preset.standard" = "标准";
+"session.setup.preset.deep" = "深度";
+"session.setup.quick_filters" = "快速过滤";
+"session.setup.advanced_filters" = "高级过滤选项";
+"session.setup.last_completed" = "上次会话已完成";
+"session.setup.slider_min" = "10";
+"session.setup.slider_max" = "100";
+
+/* 过滤器 */
+"filter.advanced" = "高级过滤";
+"filter.content_type" = "内容类型";
+"filter.date_range" = "日期范围";
+"filter.location" = "位置信息";
+"filter.duration" = "视频时长";
+"filter.other_options" = "其他选项";
+"filter.exclude_hidden" = "排除已隐藏";
+"filter.exclude_hidden_desc" = "不选择已隐藏的照片";
+"filter.exclude_favorite" = "排除已收藏";
+"filter.exclude_favorite_desc" = "不选择标记为收藏的照片";
+"filter.exclude_hidden_photos" = "排除已隐藏的照片";
+"filter.exclude_favorite_photos" = "排除已收藏的照片";
+"filter.logic" = "过滤逻辑";
+"filter.logic_and" = "所有过滤条件将同时生效（AND 逻辑）";
+"filter.unlimited" = "不限";
+"filter.unlimited_time" = "所有时间范围";
+"filter.unlimited_location" = "不限位置信息";
+"filter.unlimited_duration" = "所有时长";
+"filter.select_content_type" = "选择要整理的照片或视频类型";
+"filter.select_date_range" = "可选：按拍摄时间筛选照片";
+"filter.select_location" = "可选：按是否包含 GPS 位置筛选";
+"filter.select_duration" = "可选：仅在选择视频相关类型时有效";
+
+/* 内容类型 */
+"content.all" = "所有媒体";
+"content.all.desc" = "选择所有类型的照片和视频";
+"content.screenshots" = "仅截图";
+"content.screenshots.desc" = "只选择截屏照片";
+"content.selfies" = "仅自拍";
+"content.selfies.desc" = "只选择前置摄像头拍摄的照片";
+"content.panoramas" = "仅全景照片";
+"content.panoramas.desc" = "只选择全景模式拍摄的照片";
+"content.live_photos" = "仅 Live Photo";
+"content.live_photos.desc" = "只选择 Live Photo";
+"content.portraits" = "仅人像模式";
+"content.portraits.desc" = "只选择人像模式拍摄的照片";
+"content.bursts" = "仅连拍照片";
+"content.bursts.desc" = "只选择连拍模式的照片";
+"content.videos" = "仅视频";
+"content.videos.desc" = "只选择视频文件";
+"content.hdr_photos" = "仅 HDR 照片";
+"content.hdr_photos.desc" = "只选择使用 HDR 模式拍摄的照片";
+"content.slow_motion_videos" = "仅慢动作视频";
+"content.slow_motion_videos.desc" = "只选择慢动作视频（120fps/240fps）";
+"content.timelapse_videos" = "仅延时摄影";
+"content.timelapse_videos.desc" = "只选择延时摄影视频";
+
+/* 日期范围 */
+"date.recent_7_days" = "最近 7 天";
+"date.recent_30_days" = "最近 30 天";
+"date.this_year" = "今年拍摄";
+"date.last_year" = "去年拍摄";
+"date.older_1_year" = "1 年前";
+"date.older_2_years" = "2 年前";
+
+/* 位置信息 */
+"location.with_location" = "含位置信息";
+"location.with_location.desc" = "带有 GPS 位置信息";
+"location.without_location" = "无位置信息";
+"location.without_location.desc" = "不含位置信息";
+
+/* 视频时长 */
+"duration.short_videos" = "短视频 (<30秒)";
+"duration.long_videos" = "长视频 (>5分钟)";
+
+/* 卡片审阅 */
+"review.previous" = "上一张";
+"review.next" = "下一张";
+"review.progress" = "%d / %d";
+"review.screenshot" = "截图";
+"review.live" = "Live";
+"review.panorama" = "全景";
+"review.playing" = "播放中";
+"review.long_press_to_play" = "长按播放";
+"review.double_tap_to_exit" = "双击退出";
+"review.zoom_level" = "%.1fx";
+"review.unknown_date" = "未知日期";
+
+/* 会话完成 */
+"session.complete.title" = "会话完成！";
+"session.complete.subtitle" = "干得漂亮！";
+"session.complete.deleted" = "已删除";
+"session.complete.kept" = "已保留";
+"session.complete.total" = "审阅总数";
+"session.complete.details" = "会话详情";
+"session.complete.deletion_rate" = "删除率";
+"session.complete.keep_rate" = "保留率";
+"session.complete.pending_deletion" = "待删除照片";
+"session.complete.pending_deletion_count" = "%d 张";
+"session.complete.estimated_space" = "预计释放空间";
+"session.complete.session_count" = "完成会话次数";
+"session.complete.will_delete_count" = "将批量删除 %d 张照片";
+
+/* 设置 */
+"settings.title" = "设置";
+"settings.appearance" = "外观";
+"settings.language" = "语言";
+"settings.theme.system" = "跟随系统";
+"settings.theme.system.desc" = "自动跟随系统外观设置";
+"settings.theme.light" = "浅色模式";
+"settings.theme.light.desc" = "始终使用浅色模式";
+"settings.theme.dark" = "深色模式";
+"settings.theme.dark.desc" = "始终使用深色模式";
+"settings.data_and_stats" = "数据和统计";
+"settings.total_reviewed" = "已审阅照片总数";
+"settings.total_deleted" = "已删除照片总数";
+"settings.total_freed_space" = "累计释放空间";
+"settings.total_sessions" = "完成会话次数";
+"settings.clear_stats" = "清除统计数据";
+"settings.reset_settings" = "重置所有设置";
+"settings.photo_permission" = "查看照片库权限";
+"settings.about" = "关于";
+"settings.app_version" = "应用版本";
+"settings.developer" = "开发者";
+"settings.developer_name" = "Photo Tidy Team";
+"settings.feedback" = "反馈和建议";
+"settings.privacy_policy" = "隐私政策";
+"settings.data_local_only" = "所有操作均在本地进行，不会上传任何数据";
+"settings.stats_help" = "统计数据用于帮助您了解使用情况";
+"settings.theme_description" = "选择应用的外观主题，跟随系统时会自动适应系统的浅色/深色模式设置";
+"settings.language.system" = "跟随系统";
+"settings.language.system.desc" = "使用系统语言设置";
+"settings.language.chinese" = "简体中文";
+"settings.language.chinese.desc" = "使用简体中文界面";
+"settings.language.english" = "English";
+"settings.language.english.desc" = "Use English interface";
+"settings.language_description" = "选择应用界面语言，重启应用后生效";
+"settings.restart_required" = "语言更改需要重启应用才能生效";
+
+/* 错误消息 */
+"error.title" = "错误";
+"error.general" = "发生未知错误";
+"error.photo_load" = "无法加载照片";
+"error.photo_deleted_or_corrupted" = "这张照片可能已被删除或损坏";
+"error.permission" = "权限";
+"error.permission_required" = "需要照片库访问权限";
+"error.consecutive_failures" = "连续加载失败";
+"error.consecutive_failures_message" = "已连续失败 %d 张照片。是否跳过所有加载失败的照片？";
+"error.cannot_load_more" = "无法加载更多照片，请检查相册权限。";
+
+/* 空状态 */
+"empty.title" = "相册为空";
+"empty.message" = "您的相册中还没有照片，请先添加一些照片。";
+"empty.action" = "打开照片";
+"empty.error_title" = "出错了";
+
+/* 权限 */
+"permission.title" = "需要照片库访问权限";
+"permission.description" = "Photo Tidy 需要访问您的照片库，以便帮您整理照片。所有操作均在本地进行，我们不会上传或分享您的照片。";
+"permission.reason.view" = "随机选取照片供您审阅";
+"permission.reason.delete" = "删除您标记的照片";
+"permission.reason.privacy" = "所有操作在本地完成，保护隐私";
+
+/* 提示和警告 */
+"alert.reset_settings.title" = "重置所有设置";
+"alert.reset_settings.message" = "这将恢复所有设置为默认值，但不会影响统计数据。";
+"alert.clear_stats.title" = "清除统计数据";
+"alert.clear_stats.message" = "这将永久删除所有统计数据，此操作无法撤销。";
+"alert.hint" = "提示";
+
+/* Toast 消息 */
+"toast.settings_reset" = "设置已重置为默认值";
+"toast.stats_cleared" = "统计数据已清除";
+
+/* 过滤配置摘要 */
+"filter.summary.all_media" = "所有媒体";
+"filter.summary.and" = " 且 ";
+"filter.summary.exclude_hidden" = "排除隐藏";
+"filter.summary.exclude_favorite" = "排除收藏";
+
+/* 验证警告和建议 */
+"validation.warning.image_with_duration" = "⚠️ 图片类型不支持视频时长过滤";
+"validation.suggestion.remove_duration" = "移除时长过滤或选择视频类型";
+"validation.suggestion.video_location" = "💡 提示：视频的位置信息可能不如照片准确";
+"validation.suggestion.selfie_accuracy" = "💡 自拍检测使用启发式规则，准确度约 70%";
+"validation.suggestion.burst_date_range" = "💡 最近的连拍照片可能较少，建议扩大日期范围";
+

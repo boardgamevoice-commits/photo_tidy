@@ -132,15 +132,15 @@ struct CardReviewView: View {
             // 清理所有任务
             cleanupTasks()
         }
-        .alert("连续加载失败", isPresented: $showBatchSkipAlert) {
-            Button("继续尝试", role: .cancel) {
+        .alert(L10n.Error.consecutiveFailures, isPresented: $showBatchSkipAlert) {
+            Button(L10n.Button.continueTrying, role: .cancel) {
                 consecutiveFailures = 0
             }
-            Button("跳过所有错误照片") {
+            Button(L10n.Button.skipAllFailed) {
                 skipFailedPhotos()
             }
         } message: {
-            Text("已连续失败 \(consecutiveFailures) 张照片。是否跳过所有加载失败的照片？")
+            Text(L10n.Error.consecutiveFailuresMessage(consecutiveFailures))
         }
     }
     
@@ -229,7 +229,7 @@ struct CardReviewView: View {
                                 HStack(spacing: 2) {
                                     Image(systemName: "camera.viewfinder")
                                         .font(.caption2)
-                                    Text("截图")
+                                    Text(L10n.Review.screenshot)
                                         .font(.caption2)
                                 }
                             } else if photo.asset.mediaSubtypes.contains(.photoLive) {
@@ -238,7 +238,7 @@ struct CardReviewView: View {
                                 HStack(spacing: 2) {
                                     Image(systemName: "livephoto")
                                         .font(.caption2)
-                                    Text("Live")
+                                    Text(L10n.Review.live)
                                         .font(.caption2)
                                 }
                             } else if photo.asset.mediaSubtypes.contains(.photoPanorama) {
@@ -247,7 +247,7 @@ struct CardReviewView: View {
                                 HStack(spacing: 2) {
                                     Image(systemName: "pano")
                                         .font(.caption2)
-                                    Text("全景")
+                                    Text(L10n.Review.panorama)
                                         .font(.caption2)
                                 }
                             }
@@ -270,25 +270,25 @@ struct CardReviewView: View {
                         viewModel.undoLastDeletion()
                     }
                 }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.uturn.backward.circle.fill")
-                            .font(.title3)
-                        Text("撤销")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        if viewModel.undoCount > 0 {
-                            Text("(\(viewModel.undoCount))")
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                        }
-                    }
-                    .foregroundColor(viewModel.canUndo ? .orange : .gray)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(Color.white.opacity(viewModel.canUndo ? 0.15 : 0.05))
-                    )
+                        HStack(spacing: 6) {
+                                Image(systemName: "arrow.uturn.backward.circle.fill")
+                                    .font(.title3)
+                                Text(L10n.Button.undo)
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                if viewModel.undoCount > 0 {
+                                    Text("(\(viewModel.undoCount))")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                }
+                            }
+                            .foregroundColor(viewModel.canUndo ? .orange : .gray)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .fill(Color.white.opacity(viewModel.canUndo ? 0.15 : 0.05))
+                            )
                 }
                 .disabled(!viewModel.canUndo)
             }
@@ -307,14 +307,14 @@ struct CardReviewView: View {
                 // 拖拽方向提示
                 if isDragging && !isZoomed {
                     VStack {
-                        if dragOffset.width > 50 {
+                            if dragOffset.width > 50 {
                             // 右滑提示 - 上一张
                             HStack {
                                 VStack {
                                     Image(systemName: "chevron.left")
                                         .font(.title)
                                         .foregroundColor(.blue)
-                                    Text("上一张")
+                                    Text(L10n.Review.previous)
                                         .font(.caption)
                                         .foregroundColor(.blue)
                                 }
@@ -333,7 +333,7 @@ struct CardReviewView: View {
                                     Image(systemName: "chevron.right")
                                         .font(.title)
                                         .foregroundColor(.purple)
-                                    Text("下一张")
+                                    Text(L10n.Review.next)
                                         .font(.caption)
                                         .foregroundColor(.purple)
                                 }
@@ -358,7 +358,7 @@ struct CardReviewView: View {
                                 HStack(spacing: 4) {
                                     Image(systemName: "magnifyingglass")
                                         .font(.caption2)
-                                    Text("\(String(format: "%.1f", finalScale * currentScale))x")
+                                    Text(L10n.Review.zoomLevel(finalScale * currentScale))
                                         .font(.caption2)
                                         .fontWeight(.semibold)
                                 }
@@ -370,7 +370,7 @@ struct CardReviewView: View {
                                         .fill(Color.black.opacity(0.6))
                                 )
                                 
-                                Text("双击退出")
+                                Text(L10n.Review.doubleTapToExit)
                                     .font(.caption2)
                                     .foregroundColor(.white.opacity(0.7))
                             }
@@ -389,7 +389,7 @@ struct CardReviewView: View {
                             .scaleEffect(1.5)
                         
                         VStack(spacing: 8) {
-                            Text("加载中...")
+                            Text(L10n.Loading.general)
                                 .font(.subheadline)
                                 .foregroundColor(.white.opacity(0.7))
                             
@@ -414,11 +414,11 @@ struct CardReviewView: View {
                         }
                         
                         VStack(spacing: 10) {
-                            Text("无法加载照片")
+                            Text(L10n.Error.photoLoad)
                                 .font(.headline)
                                 .foregroundColor(.white)
                             
-                            Text("这张照片可能已被删除或损坏")
+                            Text(L10n.Error.photoDeletedOrCorrupted)
                                 .font(.caption)
                                 .foregroundColor(.white.opacity(0.7))
                                 .multilineTextAlignment(.center)
@@ -432,7 +432,7 @@ struct CardReviewView: View {
                                 HStack(spacing: 6) {
                                     Image(systemName: "arrow.clockwise")
                                         .font(.subheadline)
-                                    Text("重试")
+                                    Text(L10n.Button.retry)
                                         .font(.subheadline)
                                         .fontWeight(.medium)
                                 }
@@ -452,7 +452,7 @@ struct CardReviewView: View {
                                 HStack(spacing: 6) {
                                     Image(systemName: "forward.fill")
                                         .font(.subheadline)
-                                    Text("跳过")
+                                    Text(L10n.Button.skip)
                                         .font(.subheadline)
                                         .fontWeight(.medium)
                                 }
@@ -496,7 +496,7 @@ struct CardReviewView: View {
                                     HStack(spacing: 4) {
                                         Image(systemName: "livephoto")
                                             .font(.caption2)
-                                        Text(isPlayingLive ? "播放中" : "长按播放")
+                                        Text(isPlayingLive ? L10n.Review.playing : L10n.Review.longPressToPlay)
                                             .font(.caption2)
                                     }
                                     .foregroundColor(.white)
@@ -642,7 +642,7 @@ struct CardReviewView: View {
                             .foregroundColor(.white)
                     }
                     
-                    Text("删除")
+                    Text(L10n.Button.delete)
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
@@ -674,7 +674,7 @@ struct CardReviewView: View {
                             .foregroundColor(.white)
                     }
                     
-                    Text("保留")
+                    Text(L10n.Button.keep)
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
@@ -1117,11 +1117,11 @@ struct CardReviewView: View {
     // MARK: - Helper Methods
     
     private func formatDate(_ date: Date?) -> String {
-        guard let date = date else { return "未知日期" }
+        guard let date = date else { return L10n.Review.unknownDate }
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
-        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.locale = Locale.current  // 使用当前语言环境
         return formatter.string(from: date)
     }
     

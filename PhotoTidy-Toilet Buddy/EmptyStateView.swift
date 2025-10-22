@@ -119,7 +119,7 @@ struct ErrorStateView: View {
             
             // 标题和错误消息
             VStack(spacing: 12) {
-                Text("出错了")
+                Text(L10n.Empty.errorTitle)
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
@@ -136,7 +136,7 @@ struct ErrorStateView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.clockwise")
                         .font(.headline)
-                    Text("重试")
+                    Text(L10n.Button.retry)
                         .font(.headline)
                 }
                 .foregroundColor(.white)
@@ -187,12 +187,12 @@ struct PermissionRequestView: View {
             
             // 标题和说明
             VStack(spacing: 12) {
-                Text("需要照片库访问权限")
+                Text(L10n.Permission.title)
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
                 
-                Text("Photo Tidy 需要访问您的照片库，以便帮您整理照片。所有操作均在本地进行，我们不会上传或分享您的照片。")
+                Text(L10n.Permission.description)
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -203,15 +203,15 @@ struct PermissionRequestView: View {
             VStack(alignment: .leading, spacing: 15) {
                 PermissionReasonRow(
                     icon: "eye",
-                    text: "随机选取照片供您审阅"
+                    text: L10n.Permission.Reason.view
                 )
                 PermissionReasonRow(
                     icon: "trash",
-                    text: "删除您标记的照片"
+                    text: L10n.Permission.Reason.delete
                 )
                 PermissionReasonRow(
                     icon: "lock.shield",
-                    text: "所有操作在本地完成，保护隐私"
+                    text: L10n.Permission.Reason.privacy
                 )
             }
             .padding(.horizontal, 40)
@@ -221,7 +221,7 @@ struct PermissionRequestView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "gear")
                         .font(.headline)
-                    Text("前往设置")
+                    Text(L10n.Button.goToSettings)
                         .font(.headline)
                 }
                 .foregroundColor(.white)

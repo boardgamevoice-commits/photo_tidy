@@ -1,0 +1,226 @@
+/* 
+ * Localizable.strings (English)
+ * Photo Tidy - Toilet Buddy
+ */
+
+/* Common */
+"app.name" = "Photo Tidy";
+"app.subtitle" = "Toilet Buddy";
+"app.tagline" = "Randomly select photos and easily organize your album";
+
+/* Buttons */
+"button.cancel" = "Cancel";
+"button.done" = "Done";
+"button.confirm" = "OK";
+"button.start" = "Start";
+"button.start_new" = "Start New";
+"button.start_new_session" = "Start New Session";
+"button.retry" = "Retry";
+"button.skip" = "Skip";
+"button.delete" = "Delete";
+"button.keep" = "Keep";
+"button.undo" = "Undo";
+"button.reset" = "Reset";
+"button.go_to_settings" = "Go to Settings";
+"button.continue_trying" = "Continue";
+"button.skip_all_failed" = "Skip All Failed";
+"button.confirm_delete_and_start" = "Confirm & Start";
+"button.clear" = "Clear";
+
+/* Loading States */
+"loading.general" = "Loading...";
+"loading.photo" = "Loading photo...";
+"loading.deleting" = "Deleting photos";
+"loading.please_wait" = "Please wait...";
+
+/* Session Setup */
+"session.setup.title" = "Setup Session";
+"session.setup.photo_count" = "Select Photo Count";
+"session.setup.unit.photo" = " photos";
+"session.setup.preset.quick" = "Quick";
+"session.setup.preset.standard" = "Standard";
+"session.setup.preset.deep" = "Deep";
+"session.setup.quick_filters" = "Quick Filters";
+"session.setup.advanced_filters" = "Advanced Filters";
+"session.setup.last_completed" = "Last session completed";
+"session.setup.slider_min" = "10";
+"session.setup.slider_max" = "100";
+
+/* Filters */
+"filter.advanced" = "Advanced Filters";
+"filter.content_type" = "Content Type";
+"filter.date_range" = "Date Range";
+"filter.location" = "Location";
+"filter.duration" = "Video Duration";
+"filter.other_options" = "Other Options";
+"filter.exclude_hidden" = "Exclude Hidden";
+"filter.exclude_hidden_desc" = "Don't select hidden photos";
+"filter.exclude_favorite" = "Exclude Favorites";
+"filter.exclude_favorite_desc" = "Don't select favorited photos";
+"filter.exclude_hidden_photos" = "Exclude hidden photos";
+"filter.exclude_favorite_photos" = "Exclude favorited photos";
+"filter.logic" = "Filter Logic";
+"filter.logic_and" = "All filters will apply simultaneously (AND logic)";
+"filter.unlimited" = "Unlimited";
+"filter.unlimited_time" = "All time ranges";
+"filter.unlimited_location" = "No location filter";
+"filter.unlimited_duration" = "All durations";
+"filter.select_content_type" = "Select photo or video types to organize";
+"filter.select_date_range" = "Optional: Filter by creation date";
+"filter.select_location" = "Optional: Filter by GPS location";
+"filter.select_duration" = "Optional: Only applies to video types";
+
+/* Content Types */
+"content.all" = "All Media";
+"content.all.desc" = "All types of photos and videos";
+"content.screenshots" = "Screenshots Only";
+"content.screenshots.desc" = "Screenshots only";
+"content.selfies" = "Selfies Only";
+"content.selfies.desc" = "Front camera photos only";
+"content.panoramas" = "Panoramas Only";
+"content.panoramas.desc" = "Panorama photos only";
+"content.live_photos" = "Live Photos Only";
+"content.live_photos.desc" = "Live Photos only";
+"content.portraits" = "Portrait Mode Only";
+"content.portraits.desc" = "Portrait mode photos only";
+"content.bursts" = "Burst Photos Only";
+"content.bursts.desc" = "Burst mode photos only";
+"content.videos" = "Videos Only";
+"content.videos.desc" = "Video files only";
+"content.hdr_photos" = "HDR Photos Only";
+"content.hdr_photos.desc" = "HDR photos only";
+"content.slow_motion_videos" = "Slow Motion Videos";
+"content.slow_motion_videos.desc" = "Slow motion videos (120fps/240fps)";
+"content.timelapse_videos" = "Timelapse Videos";
+"content.timelapse_videos.desc" = "Timelapse videos only";
+
+/* Date Ranges */
+"date.recent_7_days" = "Last 7 Days";
+"date.recent_30_days" = "Last 30 Days";
+"date.this_year" = "This Year";
+"date.last_year" = "Last Year";
+"date.older_1_year" = "1 Year Ago";
+"date.older_2_years" = "2 Years Ago";
+
+/* Location */
+"location.with_location" = "With Location";
+"location.with_location.desc" = "Has GPS location info";
+"location.without_location" = "Without Location";
+"location.without_location.desc" = "No location info";
+
+/* Video Duration */
+"duration.short_videos" = "Short Videos (<30s)";
+"duration.long_videos" = "Long Videos (>5min)";
+
+/* Card Review */
+"review.previous" = "Previous";
+"review.next" = "Next";
+"review.progress" = "%d / %d";
+"review.screenshot" = "Screenshot";
+"review.live" = "Live";
+"review.panorama" = "Pano";
+"review.playing" = "Playing";
+"review.long_press_to_play" = "Long press to play";
+"review.double_tap_to_exit" = "Double tap to exit";
+"review.zoom_level" = "%.1fx";
+"review.unknown_date" = "Unknown date";
+
+/* Session Complete */
+"session.complete.title" = "Session Complete!";
+"session.complete.subtitle" = "Great Job!";
+"session.complete.deleted" = "Deleted";
+"session.complete.kept" = "Kept";
+"session.complete.total" = "Total Reviewed";
+"session.complete.details" = "Session Details";
+"session.complete.deletion_rate" = "Deletion Rate";
+"session.complete.keep_rate" = "Keep Rate";
+"session.complete.pending_deletion" = "Pending Deletion";
+"session.complete.pending_deletion_count" = "%d photos";
+"session.complete.estimated_space" = "Estimated Space";
+"session.complete.session_count" = "Sessions Completed";
+"session.complete.will_delete_count" = "Will delete %d photos";
+
+/* Settings */
+"settings.title" = "Settings";
+"settings.appearance" = "Appearance";
+"settings.language" = "Language";
+"settings.theme.system" = "System";
+"settings.theme.system.desc" = "Follow system appearance";
+"settings.theme.light" = "Light Mode";
+"settings.theme.light.desc" = "Always use light mode";
+"settings.theme.dark" = "Dark Mode";
+"settings.theme.dark.desc" = "Always use dark mode";
+"settings.data_and_stats" = "Data & Statistics";
+"settings.total_reviewed" = "Total Photos Reviewed";
+"settings.total_deleted" = "Total Photos Deleted";
+"settings.total_freed_space" = "Total Space Freed";
+"settings.total_sessions" = "Sessions Completed";
+"settings.clear_stats" = "Clear Statistics";
+"settings.reset_settings" = "Reset All Settings";
+"settings.photo_permission" = "Photo Library Permission";
+"settings.about" = "About";
+"settings.app_version" = "App Version";
+"settings.developer" = "Developer";
+"settings.developer_name" = "Photo Tidy Team";
+"settings.feedback" = "Feedback";
+"settings.privacy_policy" = "Privacy Policy";
+"settings.data_local_only" = "All operations are performed locally, no data is uploaded";
+"settings.stats_help" = "Statistics help you understand your usage";
+"settings.theme_description" = "Choose app appearance theme. System mode automatically adapts to system light/dark mode settings";
+"settings.language.system" = "System";
+"settings.language.system.desc" = "Use system language";
+"settings.language.chinese" = "简体中文";
+"settings.language.chinese.desc" = "Use Simplified Chinese";
+"settings.language.english" = "English";
+"settings.language.english.desc" = "Use English interface";
+"settings.language_description" = "Choose app language, restart required to take effect";
+"settings.restart_required" = "Language change requires app restart to take effect";
+
+/* Error Messages */
+"error.title" = "Error";
+"error.general" = "An unknown error occurred";
+"error.photo_load" = "Unable to load photo";
+"error.photo_deleted_or_corrupted" = "This photo may have been deleted or corrupted";
+"error.permission" = "Permission";
+"error.permission_required" = "Photo Library Access Required";
+"error.consecutive_failures" = "Consecutive Failures";
+"error.consecutive_failures_message" = "Failed to load %d photos consecutively. Skip all failed photos?";
+"error.cannot_load_more" = "Cannot load more photos. Please check photo library permissions.";
+
+/* Empty States */
+"empty.title" = "Album Empty";
+"empty.message" = "Your album doesn't have any photos yet. Please add some photos first.";
+"empty.action" = "Open Photos";
+"empty.error_title" = "Error Occurred";
+
+/* Permissions */
+"permission.title" = "Photo Library Access Required";
+"permission.description" = "Photo Tidy needs access to your photo library to help organize photos. All operations are performed locally, and we do not upload or share your photos.";
+"permission.reason.view" = "Randomly select photos for review";
+"permission.reason.delete" = "Delete marked photos";
+"permission.reason.privacy" = "All operations local, privacy protected";
+
+/* Alerts and Warnings */
+"alert.reset_settings.title" = "Reset All Settings";
+"alert.reset_settings.message" = "This will restore all settings to defaults but won't affect statistics.";
+"alert.clear_stats.title" = "Clear Statistics";
+"alert.clear_stats.message" = "This will permanently delete all statistics. This action cannot be undone.";
+"alert.hint" = "Hint";
+
+/* Toast Messages */
+"toast.settings_reset" = "Settings reset to defaults";
+"toast.stats_cleared" = "Statistics cleared";
+
+/* Filter Configuration Summary */
+"filter.summary.all_media" = "All media";
+"filter.summary.and" = " and ";
+"filter.summary.exclude_hidden" = "exclude hidden";
+"filter.summary.exclude_favorite" = "exclude favorites";
+
+/* Validation Warnings and Suggestions */
+"validation.warning.image_with_duration" = "⚠️ Image types don't support video duration filters";
+"validation.suggestion.remove_duration" = "Remove duration filter or select video type";
+"validation.suggestion.video_location" = "💡 Tip: Video location info may be less accurate than photos";
+"validation.suggestion.selfie_accuracy" = "💡 Selfie detection uses heuristic rules, ~70% accuracy";
+"validation.suggestion.burst_date_range" = "💡 Recent burst photos may be limited, consider expanding date range";
+

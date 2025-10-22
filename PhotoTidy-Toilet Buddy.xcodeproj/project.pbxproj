@@ -21,6 +21,9 @@
 		A1000037000000000000001 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000038000000000000001 /* Settings.swift */; };
 		A1000039000000000000001 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000040000000000000001 /* SettingsManager.swift */; };
 		A1000041000000000000001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000042000000000000001 /* SettingsView.swift */; };
+		L0A26B06D07CB4206AA3FBEC /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = L4B8D52D2D00C47FFB434585 /* Localizable.strings */; };
+		L82BA282EC0FB4C9F9B24856 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = LB82761FD75C2438F9F83B30 /* EmptyStateView.swift */; };
+		LF276D1C9303F45D19691880 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = L2388FAA8EE2A41BA88B5140 /* Localization.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,6 +45,10 @@
 		A1000042000000000000001 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A3CAAB1287CD5FA3B8E9A908 /* Pods_PhotoTidy_Toilet_Buddy.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_PhotoTidy_Toilet_Buddy.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C3F7062DCAA2022517302655 /* Pods-PhotoTidy-Toilet Buddy.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PhotoTidy-Toilet Buddy.release.xcconfig"; path = "Target Support Files/Pods-PhotoTidy-Toilet Buddy/Pods-PhotoTidy-Toilet Buddy.release.xcconfig"; sourceTree = "<group>"; };
+		L2388FAA8EE2A41BA88B5140 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		L2713C566A48041D4A43EF51 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		L9F03AD94C1664952ADE46B8 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		LB82761FD75C2438F9F83B30 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -92,12 +99,15 @@
 				A1000034000000000000001 /* CardReviewView.swift */,
 				A1000036000000000000001 /* SessionCompleteView.swift */,
 				A1000032000000000000001 /* AdvancedFilterView.swift */,
+				LB82761FD75C2438F9F83B30 /* EmptyStateView.swift */,
 				A1000038000000000000001 /* Settings.swift */,
 				A1000040000000000000001 /* SettingsManager.swift */,
 				A1000042000000000000001 /* SettingsView.swift */,
 				A1000028000000000000001 /* TidySessionViewModel.swift */,
 				A1000006000000000000001 /* AdManager.swift */,
 				A1000026000000000000001 /* PhotoService.swift */,
+				L2388FAA8EE2A41BA88B5140 /* Localization.swift */,
+				L4B8D52D2D00C47FFB434585 /* Localizable.strings */,
 				A1000008000000000000001 /* Assets.xcassets */,
 				A1000010000000000000001 /* Info.plist */,
 			);
@@ -156,6 +166,7 @@
 			knownRegions = (
 				en,
 				Base,
+				"zh-Hans",
 			);
 			mainGroup = A1000012000000000000001;
 			productRefGroup = A1000014000000000000001 /* Products */;
@@ -168,14 +179,15 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A1000018000000000000001 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A1000007000000000000001 /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+	A1000018000000000000001 /* Resources */ = {
+		isa = PBXResourcesBuildPhase;
+		buildActionMask = 2147483647;
+		files = (
+			A1000007000000000000001 /* Assets.xcassets in Resources */,
+			L0A26B06D07CB4206AA3FBEC /* Localizable.strings in Resources */,
+		);
+		runOnlyForDeploymentPostprocessing = 0;
+	};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -209,9 +221,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-PhotoTidy-Toilet Buddy/Pods-PhotoTidy-Toilet Buddy-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-PhotoTidy-Toilet Buddy/Pods-PhotoTidy-Toilet Buddy-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -225,6 +241,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				LF276D1C9303F45D19691880 /* Localization.swift in Sources */,
+				L82BA282EC0FB4C9F9B24856 /* EmptyStateView.swift in Sources */,
 				A1000003000000000000001 /* ContentView.swift in Sources */,
 				A1000029000000000000001 /* SessionSetupView.swift in Sources */,
 				A1000033000000000000001 /* CardReviewView.swift in Sources */,
@@ -241,6 +259,18 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		L4B8D52D2D00C47FFB434585 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				L9F03AD94C1664952ADE46B8 /* zh-Hans */,
+				L2713C566A48041D4A43EF51 /* en */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		A1000021000000000000001 /* Debug */ = {

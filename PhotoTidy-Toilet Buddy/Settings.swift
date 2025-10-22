@@ -8,11 +8,65 @@
 import Foundation
 import SwiftUI
 
+/// 应用语言枚举
+enum AppLanguage: String, Codable, CaseIterable, Identifiable {
+    case system
+    case chinese
+    case english
+    
+    var id: String { rawValue }
+    
+    var localizedName: String {
+        switch self {
+        case .system:
+            return NSLocalizedString("settings.language.system", comment: "")
+        case .chinese:
+            return NSLocalizedString("settings.language.chinese", comment: "")
+        case .english:
+            return NSLocalizedString("settings.language.english", comment: "")
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .system:
+            return "globe"
+        case .chinese:
+            return "character.textbox"
+        case .english:
+            return "textformat.abc"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .system:
+            return NSLocalizedString("settings.language.system.desc", comment: "")
+        case .chinese:
+            return NSLocalizedString("settings.language.chinese.desc", comment: "")
+        case .english:
+            return NSLocalizedString("settings.language.english.desc", comment: "")
+        }
+    }
+    
+    /// 转换为语言代码
+    var languageCode: String? {
+        switch self {
+        case .system:
+            return nil // nil 表示跟随系统
+        case .chinese:
+            return "zh-Hans"
+        case .english:
+            return "en"
+        }
+    }
+}
+
 /// 主题模式枚举
 enum AppTheme: String, Codable, CaseIterable, Identifiable {
-    case system = "跟随系统"
-    case light = "浅色模式"
-    case dark = "深色模式"
+    case system
+    case light
+    case dark
     
     var id: String { rawValue }
     
@@ -27,14 +81,25 @@ enum AppTheme: String, Codable, CaseIterable, Identifiable {
         }
     }
     
+    var localizedName: String {
+        switch self {
+        case .system:
+            return NSLocalizedString("settings.theme.system", comment: "")
+        case .light:
+            return NSLocalizedString("settings.theme.light", comment: "")
+        case .dark:
+            return NSLocalizedString("settings.theme.dark", comment: "")
+        }
+    }
+    
     var description: String {
         switch self {
         case .system:
-            return "自动跟随系统外观设置"
+            return NSLocalizedString("settings.theme.system.desc", comment: "")
         case .light:
-            return "始终使用浅色模式"
+            return NSLocalizedString("settings.theme.light.desc", comment: "")
         case .dark:
-            return "始终使用深色模式"
+            return NSLocalizedString("settings.theme.dark.desc", comment: "")
         }
     }
     
@@ -58,6 +123,9 @@ struct Settings: Codable, Equatable {
     
     /// 主题模式
     var theme: AppTheme = .system
+    
+    /// 语言设置
+    var language: AppLanguage = .system
     
     // MARK: - 审阅体验设置 (P1 - 预留)
     

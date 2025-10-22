@@ -55,7 +55,7 @@ struct SessionSetupView: View {
                 }
                 .padding()
             }
-            .navigationTitle("设置会话")
+            .navigationTitle(L10n.SessionSetup.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -77,12 +77,12 @@ struct SessionSetupView: View {
             .onChange(of: filterConfig) { _ in
                 saveUserPreferences()
             }
-            .alert("提示", isPresented: $showingError) {
-                Button("确定", role: .cancel) {
+            .alert(L10n.Alert.hint, isPresented: $showingError) {
+                Button(L10n.Button.confirm, role: .cancel) {
                     viewModel.errorMessage = nil
                 }
             } message: {
-                Text(viewModel.errorMessage ?? "发生未知错误")
+                Text(viewModel.errorMessage ?? L10n.Error.general)
             }
             .onAppear {
                 loadUserPreferences()
@@ -109,14 +109,14 @@ struct SessionSetupView: View {
                     )
                 )
             
-            Text("Photo Tidy")
+            Text(L10n.App.name)
                 .font(.system(size: 34, weight: .bold, design: .rounded))
             
-            Text("马桶伴侣")
+            Text(L10n.App.subtitle)
                 .font(.title2)
                 .foregroundColor(.secondary)
             
-            Text("随机选取照片，轻松整理您的相册")
+            Text(L10n.App.tagline)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -134,7 +134,7 @@ struct SessionSetupView: View {
                     .foregroundColor(.green)
                     .font(.title2)
                 
-                Text("上次会话已完成")
+                Text(L10n.SessionSetup.lastCompleted)
                     .font(.headline)
                 
                 Spacer()
@@ -143,7 +143,7 @@ struct SessionSetupView: View {
             HStack(spacing: 30) {
                 StatItem(
                     icon: "trash.fill",
-                    label: "已删除",
+                    label: L10n.SessionComplete.deleted,
                     value: viewModel.deletedCount,
                     color: .red
                 )
@@ -153,7 +153,7 @@ struct SessionSetupView: View {
                 
                 StatItem(
                     icon: "hand.thumbsup.fill",
-                    label: "已保留",
+                    label: L10n.SessionComplete.kept,
                     value: viewModel.keptCount,
                     color: .green
                 )
@@ -178,7 +178,7 @@ struct SessionSetupView: View {
             HStack {
                 Image(systemName: "photo.on.rectangle.angled")
                     .foregroundColor(.blue)
-                Text("选择照片数量")
+                Text(L10n.SessionSetup.photoCount)
                     .font(.headline)
                 Spacer()
             }
@@ -195,7 +195,7 @@ struct SessionSetupView: View {
                             endPoint: .trailing
                         )
                     )
-                Text("张")
+                Text(L10n.SessionSetup.unitPhoto)
                     .font(.title2)
                     .foregroundColor(.secondary)
                     .padding(.leading, 5)
@@ -224,9 +224,9 @@ struct SessionSetupView: View {
             
             // 预设按钮
             HStack(spacing: 12) {
-                PresetButton(value: 10, currentValue: $photoCount, label: "快速")
-                PresetButton(value: 30, currentValue: $photoCount, label: "标准")
-                PresetButton(value: 50, currentValue: $photoCount, label: "深度")
+                PresetButton(value: 10, currentValue: $photoCount, label: L10n.SessionSetup.Preset.quick)
+                PresetButton(value: 30, currentValue: $photoCount, label: L10n.SessionSetup.Preset.standard)
+                PresetButton(value: 50, currentValue: $photoCount, label: L10n.SessionSetup.Preset.deep)
             }
         }
         .padding()
@@ -244,7 +244,7 @@ struct SessionSetupView: View {
             HStack {
                 Image(systemName: "line.3.horizontal.decrease.circle")
                     .foregroundColor(.purple)
-                Text("快速过滤")
+                Text(L10n.SessionSetup.quickFilters)
                     .font(.headline)
                 Spacer()
             }
@@ -252,7 +252,7 @@ struct SessionSetupView: View {
             VStack(spacing: 12) {
                 FilterToggle(
                     icon: "eye.slash.fill",
-                    title: "排除已隐藏的照片",
+                    title: L10n.Filter.excludeHiddenPhotos,
                     isOn: Binding(
                         get: { filterConfig.excludeHidden },
                         set: { filterConfig.excludeHidden = $0 }
@@ -262,7 +262,7 @@ struct SessionSetupView: View {
                 
                 FilterToggle(
                     icon: "heart.fill",
-                    title: "排除已收藏的照片",
+                    title: L10n.Filter.excludeFavoritePhotos,
                     isOn: Binding(
                         get: { filterConfig.excludeFavorite },
                         set: { filterConfig.excludeFavorite = $0 }
@@ -290,7 +290,7 @@ struct SessionSetupView: View {
                     .font(.title3)
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("高级过滤选项")
+                    Text(L10n.SessionSetup.advancedFilters)
                         .font(.headline)
                     Text(filterConfig.summary)
                         .font(.caption)
@@ -329,7 +329,7 @@ struct SessionSetupView: View {
                     Image(systemName: "play.fill")
                         .font(.title3)
                 }
-                Text(viewModel.isLoading ? "加载中..." : (viewModel.isSessionCompleted ? "开始新会话" : "开始整理"))
+                Text(viewModel.isLoading ? L10n.Loading.general : (viewModel.isSessionCompleted ? L10n.Button.startNewSession : L10n.Button.start))
                     .font(.headline)
             }
             .foregroundColor(.white)
@@ -754,29 +754,52 @@ enum ContentFilterType: String, CaseIterable, Identifiable {
 // MARK: - Location Filter Type
 
 enum LocationFilterType: String, Codable, CaseIterable, Identifiable {
-    case withLocation = "含位置信息"
-    case withoutLocation = "无位置信息"
+    case withLocation
+    case withoutLocation
     
     var id: String { rawValue }
+    
+    var localizedName: String {
+        switch self {
+        case .withLocation: return NSLocalizedString("location.with_location", comment: "")
+        case .withoutLocation: return NSLocalizedString("location.without_location", comment: "")
+        }
+    }
 }
 
 // MARK: - New Filter Structure (Multi-select Support)
 
 /// 内容类型（单选）
 enum ContentType: String, Codable, CaseIterable, Identifiable {
-    case all = "所有媒体"
-    case screenshots = "仅截图"
-    case selfies = "仅自拍"
-    case panoramas = "仅全景照片"
-    case livePhotos = "仅 Live Photo"
-    case portraits = "仅人像模式"
-    case bursts = "仅连拍照片"
-    case videos = "仅视频"
-    case hdrPhotos = "仅 HDR 照片"
-    case slowMotionVideos = "仅慢动作视频"
-    case timelapseVideos = "仅延时摄影"
+    case all
+    case screenshots
+    case selfies
+    case panoramas
+    case livePhotos
+    case portraits
+    case bursts
+    case videos
+    case hdrPhotos
+    case slowMotionVideos
+    case timelapseVideos
     
     var id: String { rawValue }
+    
+    var localizedName: String {
+        switch self {
+        case .all: return NSLocalizedString("content.all", comment: "")
+        case .screenshots: return NSLocalizedString("content.screenshots", comment: "")
+        case .selfies: return NSLocalizedString("content.selfies", comment: "")
+        case .panoramas: return NSLocalizedString("content.panoramas", comment: "")
+        case .livePhotos: return NSLocalizedString("content.live_photos", comment: "")
+        case .portraits: return NSLocalizedString("content.portraits", comment: "")
+        case .bursts: return NSLocalizedString("content.bursts", comment: "")
+        case .videos: return NSLocalizedString("content.videos", comment: "")
+        case .hdrPhotos: return NSLocalizedString("content.hdr_photos", comment: "")
+        case .slowMotionVideos: return NSLocalizedString("content.slow_motion_videos", comment: "")
+        case .timelapseVideos: return NSLocalizedString("content.timelapse_videos", comment: "")
+        }
+    }
     
     var icon: String {
         switch self {
@@ -796,31 +819,42 @@ enum ContentType: String, Codable, CaseIterable, Identifiable {
     
     var description: String {
         switch self {
-        case .all: return "选择所有类型的照片和视频"
-        case .screenshots: return "只选择截屏照片"
-        case .selfies: return "只选择前置摄像头拍摄的照片"
-        case .panoramas: return "只选择全景模式拍摄的照片"
-        case .livePhotos: return "只选择 Live Photo"
-        case .portraits: return "只选择人像模式拍摄的照片"
-        case .bursts: return "只选择连拍模式的照片"
-        case .videos: return "只选择视频文件"
-        case .hdrPhotos: return "只选择使用 HDR 模式拍摄的照片"
-        case .slowMotionVideos: return "只选择慢动作视频（120fps/240fps）"
-        case .timelapseVideos: return "只选择延时摄影视频"
+        case .all: return NSLocalizedString("content.all.desc", comment: "")
+        case .screenshots: return NSLocalizedString("content.screenshots.desc", comment: "")
+        case .selfies: return NSLocalizedString("content.selfies.desc", comment: "")
+        case .panoramas: return NSLocalizedString("content.panoramas.desc", comment: "")
+        case .livePhotos: return NSLocalizedString("content.live_photos.desc", comment: "")
+        case .portraits: return NSLocalizedString("content.portraits.desc", comment: "")
+        case .bursts: return NSLocalizedString("content.bursts.desc", comment: "")
+        case .videos: return NSLocalizedString("content.videos.desc", comment: "")
+        case .hdrPhotos: return NSLocalizedString("content.hdr_photos.desc", comment: "")
+        case .slowMotionVideos: return NSLocalizedString("content.slow_motion_videos.desc", comment: "")
+        case .timelapseVideos: return NSLocalizedString("content.timelapse_videos.desc", comment: "")
         }
     }
 }
 
 /// 日期范围（可选）
 enum DateRangeType: String, Codable, CaseIterable, Identifiable {
-    case recent7Days = "最近 7 天"
-    case recent30Days = "最近 30 天"
-    case thisYear = "今年拍摄"
-    case lastYear = "去年拍摄"
-    case older1Year = "1 年前"
-    case older2Years = "2 年前"
+    case recent7Days
+    case recent30Days
+    case thisYear
+    case lastYear
+    case older1Year
+    case older2Years
     
     var id: String { rawValue }
+    
+    var localizedName: String {
+        switch self {
+        case .recent7Days: return NSLocalizedString("date.recent_7_days", comment: "")
+        case .recent30Days: return NSLocalizedString("date.recent_30_days", comment: "")
+        case .thisYear: return NSLocalizedString("date.this_year", comment: "")
+        case .lastYear: return NSLocalizedString("date.last_year", comment: "")
+        case .older1Year: return NSLocalizedString("date.older_1_year", comment: "")
+        case .older2Years: return NSLocalizedString("date.older_2_years", comment: "")
+        }
+    }
     
     var icon: String {
         switch self {
@@ -836,10 +870,17 @@ enum DateRangeType: String, Codable, CaseIterable, Identifiable {
 
 /// 视频时长（可选）
 enum DurationFilterType: String, Codable, CaseIterable, Identifiable {
-    case shortVideos = "短视频 (<30秒)"
-    case longVideos = "长视频 (>5分钟)"
+    case shortVideos
+    case longVideos
     
     var id: String { rawValue }
+    
+    var localizedName: String {
+        switch self {
+        case .shortVideos: return NSLocalizedString("duration.short_videos", comment: "")
+        case .longVideos: return NSLocalizedString("duration.long_videos", comment: "")
+        }
+    }
     
     var icon: String {
         switch self {
@@ -863,30 +904,30 @@ struct FilterConfiguration: Codable, Equatable {
         var parts: [String] = []
         
         if contentType != .all {
-            parts.append(contentType.rawValue)
+            parts.append(contentType.localizedName)
         }
         
         if let dateRange = dateRange {
-            parts.append(dateRange.rawValue)
+            parts.append(dateRange.localizedName)
         }
         
         if let locationFilter = locationFilter {
-            parts.append(locationFilter.rawValue)
+            parts.append(locationFilter.localizedName)
         }
         
         if let durationFilter = durationFilter {
-            parts.append(durationFilter.rawValue)
+            parts.append(durationFilter.localizedName)
         }
         
         if excludeHidden {
-            parts.append("排除隐藏")
+            parts.append(NSLocalizedString("filter.summary.exclude_hidden", comment: ""))
         }
         
         if excludeFavorite {
-            parts.append("排除收藏")
+            parts.append(NSLocalizedString("filter.summary.exclude_favorite", comment: ""))
         }
         
-        return parts.isEmpty ? "所有媒体" : parts.joined(separator: " 且 ")
+        return parts.isEmpty ? NSLocalizedString("filter.summary.all_media", comment: "") : parts.joined(separator: NSLocalizedString("filter.summary.and", comment: ""))
     }
     
     /// 验证配置是否有效
@@ -897,24 +938,24 @@ struct FilterConfiguration: Codable, Equatable {
         // 检测矛盾配置：图片类型 + 视频时长过滤
         let imageTypes: [ContentType] = [.screenshots, .selfies, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
         if imageTypes.contains(contentType) && durationFilter != nil {
-            warnings.append("⚠️ 图片类型不支持视频时长过滤")
-            suggestions.append("移除时长过滤或选择视频类型")
+            warnings.append(NSLocalizedString("validation.warning.image_with_duration", comment: ""))
+            suggestions.append(NSLocalizedString("validation.suggestion.remove_duration", comment: ""))
         }
         
         // 检测：视频类型 + 非视频子类型
         let videoTypes: [ContentType] = [.videos, .slowMotionVideos, .timelapseVideos]
         if videoTypes.contains(contentType) && locationFilter == .withLocation {
-            suggestions.append("💡 提示：视频的位置信息可能不如照片准确")
+            suggestions.append(NSLocalizedString("validation.suggestion.video_location", comment: ""))
         }
         
         // 自拍检测准确度提示
         if contentType == .selfies {
-            suggestions.append("💡 自拍检测使用启发式规则，准确度约 70%")
+            suggestions.append(NSLocalizedString("validation.suggestion.selfie_accuracy", comment: ""))
         }
         
         // 检测可能的空结果配置
         if contentType == .bursts && dateRange == .recent7Days {
-            suggestions.append("💡 最近的连拍照片可能较少，建议扩大日期范围")
+            suggestions.append(NSLocalizedString("validation.suggestion.burst_date_range", comment: ""))
         }
         
         return ValidationResult(

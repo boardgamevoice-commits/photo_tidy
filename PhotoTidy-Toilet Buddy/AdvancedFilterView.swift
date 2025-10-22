@@ -50,11 +50,11 @@ struct AdvancedFilterView: View {
                 // 预览摘要
                 summarySection
             }
-            .navigationTitle("高级过滤")
+            .navigationTitle(L10n.Filter.advanced)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("取消") {
+                    Button(L10n.Button.cancel) {
                         dismiss()
                     }
                 }
@@ -65,13 +65,13 @@ struct AdvancedFilterView: View {
                             HStack(spacing: 4) {
                                 Image(systemName: "arrow.counterclockwise")
                                     .font(.system(size: 14))
-                                Text("重置")
+                                Text(L10n.Button.reset)
                                     .font(.subheadline)
                             }
                             .foregroundColor(.orange)
                         }
                         
-                        Button("完成") {
+                        Button(L10n.Button.done) {
                             applyFilters()
                             dismiss()
                         }
@@ -89,7 +89,7 @@ struct AdvancedFilterView: View {
             ForEach(ContentType.allCases) { type in
                 FilterOptionRow(
                     icon: type.icon,
-                    title: type.rawValue,
+                    title: type.localizedName,
                     description: type.description,
                     isSelected: tempConfig.contentType == type
                 ) {
@@ -99,9 +99,9 @@ struct AdvancedFilterView: View {
                 }
             }
         } header: {
-            SectionHeaderView(icon: "photo.stack", title: "内容类型")
+            SectionHeaderView(icon: "photo.stack", title: L10n.Filter.contentType)
         } footer: {
-            Text("选择要整理的照片或视频类型")
+            Text(L10n.Filter.selectContentType)
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -114,8 +114,8 @@ struct AdvancedFilterView: View {
             // 不限选项
             FilterOptionRow(
                 icon: "infinity",
-                title: "不限",
-                description: "所有时间范围",
+                title: L10n.Filter.unlimited,
+                description: L10n.Filter.unlimitedTime,
                 isSelected: tempConfig.dateRange == nil
             ) {
                 withAnimation(.spring(response: 0.3)) {
@@ -126,7 +126,7 @@ struct AdvancedFilterView: View {
             ForEach(DateRangeType.allCases) { dateRange in
                 FilterOptionRow(
                     icon: dateRange.icon,
-                    title: dateRange.rawValue,
+                    title: dateRange.localizedName,
                     description: "",
                     isSelected: tempConfig.dateRange == dateRange
                 ) {
@@ -136,9 +136,9 @@ struct AdvancedFilterView: View {
                 }
             }
         } header: {
-            SectionHeaderView(icon: "calendar", title: "日期范围")
+            SectionHeaderView(icon: "calendar", title: L10n.Filter.dateRange)
         } footer: {
-            Text("可选：按拍摄时间筛选照片")
+            Text(L10n.Filter.selectDateRange)
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -151,8 +151,8 @@ struct AdvancedFilterView: View {
             // 不限选项
             FilterOptionRow(
                 icon: "infinity",
-                title: "不限",
-                description: "不限位置信息",
+                title: L10n.Filter.unlimited,
+                description: L10n.Filter.unlimitedLocation,
                 isSelected: tempConfig.locationFilter == nil
             ) {
                 withAnimation(.spring(response: 0.3)) {
@@ -163,8 +163,8 @@ struct AdvancedFilterView: View {
             ForEach(LocationFilterType.allCases) { location in
                 FilterOptionRow(
                     icon: location == .withLocation ? "location.fill" : "location.slash",
-                    title: location.rawValue,
-                    description: location == .withLocation ? "带有 GPS 位置信息" : "不含位置信息",
+                    title: location.localizedName,
+                    description: location == .withLocation ? NSLocalizedString("location.with_location.desc", comment: "") : NSLocalizedString("location.without_location.desc", comment: ""),
                     isSelected: tempConfig.locationFilter == location
                 ) {
                     withAnimation(.spring(response: 0.3)) {
@@ -173,9 +173,9 @@ struct AdvancedFilterView: View {
                 }
             }
         } header: {
-            SectionHeaderView(icon: "location", title: "位置信息")
+            SectionHeaderView(icon: "location", title: L10n.Filter.location)
         } footer: {
-            Text("可选：按是否包含 GPS 位置筛选")
+            Text(L10n.Filter.selectLocation)
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -188,8 +188,8 @@ struct AdvancedFilterView: View {
             // 不限选项
             FilterOptionRow(
                 icon: "infinity",
-                title: "不限",
-                description: "所有时长",
+                title: L10n.Filter.unlimited,
+                description: L10n.Filter.unlimitedDuration,
                 isSelected: tempConfig.durationFilter == nil
             ) {
                 withAnimation(.spring(response: 0.3)) {
@@ -200,7 +200,7 @@ struct AdvancedFilterView: View {
             ForEach(DurationFilterType.allCases) { duration in
                 FilterOptionRow(
                     icon: duration.icon,
-                    title: duration.rawValue,
+                    title: duration.localizedName,
                     description: "",
                     isSelected: tempConfig.durationFilter == duration
                 ) {
@@ -210,9 +210,9 @@ struct AdvancedFilterView: View {
                 }
             }
         } header: {
-            SectionHeaderView(icon: "film", title: "视频时长")
+            SectionHeaderView(icon: "film", title: L10n.Filter.duration)
         } footer: {
-            Text("可选：仅在选择视频相关类型时有效")
+            Text(L10n.Filter.selectDuration)
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -229,11 +229,11 @@ struct AdvancedFilterView: View {
                         .frame(width: 30)
                     
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("排除已隐藏")
+                        Text(L10n.Filter.excludeHidden)
                             .font(.subheadline)
                             .fontWeight(.medium)
                         
-                        Text("不选择已隐藏的照片")
+                        Text(L10n.Filter.excludeHiddenDesc)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -248,11 +248,11 @@ struct AdvancedFilterView: View {
                         .frame(width: 30)
                     
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("排除已收藏")
+                        Text(L10n.Filter.excludeFavorite)
                             .font(.subheadline)
                             .fontWeight(.medium)
                         
-                        Text("不选择标记为收藏的照片")
+                        Text(L10n.Filter.excludeFavoriteDesc)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -260,7 +260,7 @@ struct AdvancedFilterView: View {
             }
             .toggleStyle(SwitchToggleStyle(tint: .pink))
         } header: {
-            SectionHeaderView(icon: "gearshape", title: "其他选项")
+            SectionHeaderView(icon: "gearshape", title: L10n.Filter.otherOptions)
         }
     }
     
@@ -273,11 +273,11 @@ struct AdvancedFilterView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle.fill")
                         .foregroundColor(.blue)
-                    Text("过滤逻辑")
+                    Text(L10n.Filter.logic)
                         .font(.headline)
                 }
                 
-                Text("所有过滤条件将同时生效（AND 逻辑）")
+                Text(L10n.Filter.logicAnd)
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 4)
