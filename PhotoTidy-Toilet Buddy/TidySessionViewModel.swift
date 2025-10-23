@@ -139,6 +139,38 @@ class TidySessionViewModel: ObservableObject {
     
     init() {
         print("TidySessionViewModel 初始化")
+        
+        // 设置权限状态变化监听
+        photoService.setPermissionChangeHandler { [weak self] status in
+            Task { @MainActor in
+                self?.handlePermissionStatusChange(status)
+            }
+        }
+    }
+    
+    /// 处理权限状态变化
+    private func handlePermissionStatusChange(_ status: PHAuthorizationStatus) {
+        print("权限状态变化: \(status.rawValue)")
+        
+        switch status {
+        case .denied, .restricted:
+            // 权限被拒绝或受限，停止当前会话
+            if isSessionActive {
+                errorMessage = L10n.Error.permissionRevoked
+                isSessionActive = false
+                isLoading = false
+            }
+        case .authorized, .limited:
+            // 权限恢复，可以继续使用
+            if errorMessage?.contains("权限") == true {
+                errorMessage = nil
+            }
+        case .notDetermined:
+            // 权限未确定，等待用户操作
+            break
+        @unknown default:
+            break
+        }
     }
     
     // MARK: - 核心方法
@@ -209,9 +241,9 @@ class TidySessionViewModel: ObservableObject {
         
         guard permissionStatus == .authorized || permissionStatus == .limited else {
             if permissionStatus == .denied || permissionStatus == .restricted {
-                errorMessage = "需要照片库访问权限才能使用此功能。\n\n请前往「设置」>「隐私」>「照片」中授予权限。"
+                errorMessage = L10n.Error.permissionDenied
             } else {
-                errorMessage = "无法访问照片库，请稍后重试。"
+                errorMessage = L10n.Error.photoLibraryUnavailable
             }
             isLoading = false
             print("权限被拒绝: \(permissionStatus.rawValue)")
@@ -238,7 +270,7 @@ class TidySessionViewModel: ObservableObject {
         )
         
         guard !assets.isEmpty else {
-            errorMessage = "未找到符合条件的照片。\n请尝试调整过滤设置。"
+            errorMessage = L10n.Error.noPhotosFound
             isLoading = false
             print("未找到照片")
             return
@@ -428,7 +460,7 @@ class TidySessionViewModel: ObservableObject {
                     completion(true)
                 } else {
                     print("批量删除失败: \(error?.localizedDescription ?? "未知错误")")
-                    self.errorMessage = "批量删除失败: \(error?.localizedDescription ?? "未知错误")"
+                    self.errorMessage = L10n.Error.batchDeleteFailedMessage(error?.localizedDescription ?? L10n.Error.general)
                     completion(false)
                 }
             }
@@ -448,8 +480,23 @@ class TidySessionViewModel: ObservableObject {
         
         // 2. 检查会话计数器是否达到广告显示阈值
         let shouldShow = sessionCounter % adFrequency == 0 && sessionCounter > 0
+        
+        // 3. 检查是否已经显示过广告（防止重复显示）
+        let lastAdShownKey = "lastAdShownSession"
+        let lastShownSession = UserDefaults.standard.integer(forKey: lastAdShownKey)
+        
+        if shouldShow && sessionCounter > lastShownSession {
+            // 记录本次广告显示
+            UserDefaults.standard.set(sessionCounter, forKey: lastAdShownKey)
+            print("✓ 广告显示条件满足: sessionCounter=\(sessionCounter), adFrequency=\(adFrequency), 记录显示历史")
+            return true
+        } else if shouldShow {
+            print("⚠️ 广告显示条件满足但已显示过: sessionCounter=\(sessionCounter), lastShown=\(lastShownSession)")
+            return false
+        }
+        
         print("检查广告显示条件: sessionCounter=\(sessionCounter), adFrequency=\(adFrequency), shouldShow=\(shouldShow)")
-        return shouldShow
+        return false
     }
     
     // MARK: - 辅助方法
@@ -658,7 +705,7 @@ class TidySessionViewModel: ObservableObject {
     
     // MARK: - 存储空间估算
     
-    /// 计算待删除照片的估算存储空间
+    /// 计算待删除照片的实际存储空间
     private func calculateEstimatedStorage() -> Int64 {
         var totalBytes: Int64 = 0
         
@@ -666,28 +713,82 @@ class TidySessionViewModel: ObservableObject {
             // 获取资源信息
             let resources = PHAssetResource.assetResources(for: asset)
             
+            var assetSize: Int64 = 0
+            var hasActualSize = false
+            
             for resource in resources {
-                if let size = resource.value(forKey: "fileSize") as? Int64 {
-                    totalBytes += size
-                } else {
-                    // 如果无法获取实际大小，使用估算值
-                    // 照片平均 3MB，视频平均按时长估算
-                    if asset.mediaType == .video {
-                        // 视频：按 10MB/分钟估算
-                        let minutes = asset.duration / 60.0
-                        totalBytes += Int64(minutes * 10 * 1024 * 1024)
-                    } else {
-                        // 照片：按分辨率估算
-                        let pixels = Int64(asset.pixelWidth * asset.pixelHeight)
-                        // 假设 1MP ≈ 0.5MB (考虑JPEG压缩)
-                        let megapixels = Double(pixels) / 1_000_000.0
-                        totalBytes += Int64(megapixels * 0.5 * 1024 * 1024)
-                    }
+                // 优先获取实际文件大小
+                if let size = resource.value(forKey: "fileSize") as? Int64, size > 0 {
+                    assetSize += size
+                    hasActualSize = true
                 }
             }
+            
+            // 如果没有获取到实际大小，使用改进的估算方法
+            if !hasActualSize || assetSize == 0 {
+                assetSize = estimateAssetSize(asset: asset)
+            }
+            
+            totalBytes += assetSize
         }
         
         return totalBytes
+    }
+    
+    /// 改进的资源大小估算方法
+    private func estimateAssetSize(asset: PHAsset) -> Int64 {
+        if asset.mediaType == .video {
+            return estimateVideoSize(asset: asset)
+        } else {
+            return estimateImageSize(asset: asset)
+        }
+    }
+    
+    /// 视频大小估算
+    private func estimateVideoSize(asset: PHAsset) -> Int64 {
+        let duration = asset.duration
+        let pixels = Int64(asset.pixelWidth * asset.pixelHeight)
+        
+        // 根据分辨率和时长估算
+        let megapixels = Double(pixels) / 1_000_000.0
+        
+        // 不同分辨率的码率估算 (MB/分钟)
+        let bitratePerMinute: Double
+        if megapixels <= 1.0 {
+            bitratePerMinute = 5.0  // 720p 及以下
+        } else if megapixels <= 4.0 {
+            bitratePerMinute = 15.0 // 1080p
+        } else if megapixels <= 8.0 {
+            bitratePerMinute = 30.0 // 4K
+        } else {
+            bitratePerMinute = 50.0 // 8K 及以上
+        }
+        
+        let minutes = duration / 60.0
+        return Int64(minutes * bitratePerMinute * 1024 * 1024)
+    }
+    
+    /// 图片大小估算
+    private func estimateImageSize(asset: PHAsset) -> Int64 {
+        let pixels = Int64(asset.pixelWidth * asset.pixelHeight)
+        let megapixels = Double(pixels) / 1_000_000.0
+        
+        // 根据图片类型和分辨率估算
+        let bytesPerMegapixel: Double
+        
+        // 检查是否为特殊类型
+        let subtypes = asset.mediaSubtypes
+        if subtypes.contains(.photoHDR) {
+            bytesPerMegapixel = 2.0  // HDR 图片更大
+        } else if subtypes.contains(.photoLive) {
+            bytesPerMegapixel = 1.5  // Live Photo 包含额外数据
+        } else if subtypes.contains(.photoPanorama) {
+            bytesPerMegapixel = 1.2  // 全景图通常压缩较好
+        } else {
+            bytesPerMegapixel = 0.8  // 普通 JPEG
+        }
+        
+        return Int64(megapixels * bytesPerMegapixel * 1024 * 1024)
     }
     
     /// 格式化字节数为可读字符串

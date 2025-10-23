@@ -200,9 +200,16 @@
 "error.photo_deleted_or_corrupted" = "This photo may have been deleted or corrupted";
 "error.permission" = "Permission";
 "error.permission_required" = "Photo Library Access Required";
+"error.permission_denied" = "Photo library access has been denied. Please go to Settings > Privacy > Photos to grant permission.";
+"error.permission_revoked" = "Photo library access has been revoked. Please go to Settings > Privacy > Photos to re-grant permission.";
 "error.consecutive_failures" = "Consecutive Failures";
 "error.consecutive_failures_message" = "Failed to load %d photos consecutively. Skip all failed photos?";
 "error.cannot_load_more" = "Cannot load more photos. Please check photo library permissions.";
+"error.no_photos_found" = "No photos found matching the criteria. Please try adjusting filter settings.";
+"error.session_validation_failed" = "Session validation failed";
+"error.batch_delete_failed" = "Batch deletion failed";
+"error.batch_delete_failed_message" = "Failed to delete photos: %@";
+"error.photo_library_unavailable" = "Photo library is unavailable. Please try again later.";
 
 /* Empty States */
 "empty.title" = "Album Empty";
@@ -216,6 +223,12 @@
 "permission.reason.view" = "Randomly select photos for review";
 "permission.reason.delete" = "Delete marked photos";
 "permission.reason.privacy" = "All operations local, privacy protected";
+"permission.status_authorized" = "Full access granted";
+"permission.status_limited" = "Limited access granted";
+"permission.status_denied" = "Access denied, please enable in Settings";
+"permission.status_restricted" = "Access restricted, possibly due to parental controls";
+"permission.status_not_determined" = "Access not determined, user authorization required";
+"permission.status_unknown" = "Unknown permission status";
 
 /* Alerts and Warnings */
 "alert.reset_settings.title" = "Reset All Settings";

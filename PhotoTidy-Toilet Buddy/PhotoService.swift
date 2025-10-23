@@ -19,8 +19,18 @@ class PhotoService: NSObject {
     // Note: deletedAssetsCache 已移除
     // 撤销功能现在通过 TidySessionViewModel 的延迟删除策略实现
     
+    // 权限状态变化监听
+    private var permissionChangeHandler: ((PHAuthorizationStatus) -> Void)?
+    
     private override init() {
         super.init()
+        // 注册权限变化监听
+        PHPhotoLibrary.shared().register(self)
+    }
+    
+    deinit {
+        // 取消注册
+        PHPhotoLibrary.shared().unregisterChangeObserver(self)
     }
     
     // MARK: - 权限管理
@@ -56,6 +66,37 @@ class PhotoService: NSObject {
     func hasPhotoLibraryAccess() -> Bool {
         let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
         return status == .authorized || status == .limited
+    }
+    
+    /// 设置权限状态变化监听器
+    /// - Parameter handler: 权限状态变化时的回调
+    func setPermissionChangeHandler(_ handler: @escaping (PHAuthorizationStatus) -> Void) {
+        permissionChangeHandler = handler
+    }
+    
+    /// 移除权限状态变化监听器
+    func removePermissionChangeHandler() {
+        permissionChangeHandler = nil
+    }
+    
+    /// 获取当前权限状态的详细描述
+    func getPermissionStatusDescription() -> String {
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        
+        switch status {
+        case .authorized:
+            return L10n.Permission.statusAuthorized
+        case .limited:
+            return L10n.Permission.statusLimited
+        case .denied:
+            return L10n.Permission.statusDenied
+        case .restricted:
+            return L10n.Permission.statusRestricted
+        case .notDetermined:
+            return L10n.Permission.statusNotDetermined
+        @unknown default:
+            return L10n.Permission.statusUnknown
+        }
     }
     
     // MARK: - 随机选取照片
@@ -194,33 +235,99 @@ class PhotoService: NSObject {
         let totalCount = assets.count
         AppLogger.shared.photo("准备批量删除 \(totalCount) 张照片")
         
-        // 模拟进度（因为 PHPhotoLibrary.performChanges 是原子操作）
-        // 在删除前显示进度更新，让用户感觉到进度
-        var simulatedProgress = 0
-        let progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
-            if simulatedProgress < totalCount {
-                simulatedProgress += max(1, totalCount / 20) // 分20步完成
-                let current = min(simulatedProgress, totalCount - 1)
-                progressHandler?(current, totalCount)
+        // 报告初始进度
+        progressHandler?(0, totalCount)
+        
+        // 对于大量照片，使用分批删除策略
+        if totalCount > 50 {
+            deleteAssetsInBatches(
+                assets: assets,
+                batchSize: 20,
+                progressHandler: progressHandler,
+                completion: completion
+            )
+        } else {
+            // 少量照片直接删除
+            deleteAssetsDirectly(
+                assets: assets,
+                progressHandler: progressHandler,
+                completion: completion
+            )
+        }
+    }
+    
+    /// 分批删除照片（用于大量照片）
+    private func deleteAssetsInBatches(
+        assets: [PHAsset],
+        batchSize: Int,
+        progressHandler: ((Int, Int) -> Void)?,
+        completion: @escaping (Bool, Error?) -> Void
+    ) {
+        let totalCount = assets.count
+        var completedCount = 0
+        var hasError = false
+        
+        func deleteNextBatch() {
+            let startIndex = completedCount
+            let endIndex = min(startIndex + batchSize, totalCount)
+            let batch = Array(assets[startIndex..<endIndex])
+            
+            AppLogger.shared.photo("删除批次 \(startIndex/batchSize + 1): \(batch.count) 张照片")
+            
+            PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.deleteAssets(batch as NSArray)
+            } completionHandler: { success, error in
+                DispatchQueue.main.async {
+                    if success {
+                        completedCount += batch.count
+                        progressHandler?(completedCount, totalCount)
+                        
+                        if completedCount < totalCount {
+                            // 继续下一批
+                            deleteNextBatch()
+                        } else {
+                            // 全部完成
+                            AppLogger.shared.photo("分批删除完成，共 \(totalCount) 张照片")
+                            completion(true, nil)
+                        }
+                    } else {
+                        AppLogger.shared.error("批次删除失败", error: error, category: .photo)
+                        hasError = true
+                        completion(false, error)
+                    }
+                }
             }
         }
         
+        deleteNextBatch()
+    }
+    
+    /// 直接删除照片（用于少量照片）
+    private func deleteAssetsDirectly(
+        assets: [PHAsset],
+        progressHandler: ((Int, Int) -> Void)?,
+        completion: @escaping (Bool, Error?) -> Void
+    ) {
+        let totalCount = assets.count
+        
+        // 显示"正在删除..."状态
+        progressHandler?(0, totalCount)
+        
+        // 短暂延迟以显示进度
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            progressHandler?(totalCount / 2, totalCount)
+        }
+        
         PHPhotoLibrary.shared().performChanges {
-            // 批量删除
             PHAssetChangeRequest.deleteAssets(assets as NSArray)
-            
         } completionHandler: { success, error in
-            // 停止进度定时器
-            progressTimer.invalidate()
-            
             DispatchQueue.main.async {
                 if success {
-                    AppLogger.shared.photo("批量删除成功，共 \(totalCount) 张照片")
-                    // 报告完成进度
+                    AppLogger.shared.photo("直接删除成功，共 \(totalCount) 张照片")
                     progressHandler?(totalCount, totalCount)
                     completion(true, nil)
                 } else {
-                    AppLogger.shared.error("批量删除失败", error: error, category: .photo)
+                    AppLogger.shared.error("直接删除失败", error: error, category: .photo)
                     completion(false, error)
                 }
             }
@@ -374,6 +481,24 @@ class PhotoService: NSObject {
         // 注意：由于 iOS Photos API 限制，无法 100% 准确识别自拍
         // 这里采用保守策略，可能会有误判
         return isSelfieCandidate
+    }
+}
+
+// MARK: - PHPhotoLibraryChangeObserver
+
+extension PhotoService: PHPhotoLibraryChangeObserver {
+    
+    /// 照片库发生变化时的回调
+    /// - Parameter changeInstance: 变化实例
+    func photoLibraryDidChange(_ changeInstance: PHChange) {
+        // 检查权限状态是否发生变化
+        let currentStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.permissionChangeHandler?(currentStatus)
+        }
+        
+        AppLogger.shared.photo("照片库权限状态变化: \(currentStatus.rawValue)")
     }
 }
 

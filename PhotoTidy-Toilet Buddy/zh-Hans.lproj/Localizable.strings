@@ -200,9 +200,16 @@
 "error.photo_deleted_or_corrupted" = "这张照片可能已被删除或损坏";
 "error.permission" = "权限";
 "error.permission_required" = "需要照片库访问权限";
+"error.permission_denied" = "照片库访问权限被拒绝。请前往「设置」>「隐私」>「照片」中授予权限。";
+"error.permission_revoked" = "照片库访问权限已被撤销。请前往「设置」>「隐私」>「照片」中重新授予权限。";
 "error.consecutive_failures" = "连续加载失败";
 "error.consecutive_failures_message" = "已连续失败 %d 张照片。是否跳过所有加载失败的照片？";
 "error.cannot_load_more" = "无法加载更多照片，请检查相册权限。";
+"error.no_photos_found" = "未找到符合条件的照片。请尝试调整过滤设置。";
+"error.session_validation_failed" = "会话验证失败";
+"error.batch_delete_failed" = "批量删除失败";
+"error.batch_delete_failed_message" = "删除照片失败：%@";
+"error.photo_library_unavailable" = "照片库不可用。请稍后重试。";
 
 /* 空状态 */
 "empty.title" = "相册为空";
@@ -216,6 +223,12 @@
 "permission.reason.view" = "随机选取照片供您审阅";
 "permission.reason.delete" = "删除您标记的照片";
 "permission.reason.privacy" = "所有操作在本地完成，保护隐私";
+"permission.status_authorized" = "已授予完整访问权限";
+"permission.status_limited" = "已授予有限访问权限";
+"permission.status_denied" = "权限被拒绝，请在设置中开启";
+"permission.status_restricted" = "权限受限，可能由于家长控制";
+"permission.status_not_determined" = "权限未确定，需要用户授权";
+"permission.status_unknown" = "未知权限状态";
 
 /* 提示和警告 */
 "alert.reset_settings.title" = "重置所有设置";
