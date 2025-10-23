@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>帮助与支持 - PhotoTidy</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.8;
+            color: #333;
+            background: #f5f5f7;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .content {
+            background: white;
+            border-radius: 10px;
+            padding: 50px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+        }
+        
+        .content h2 {
+            color: #667eea;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        .content h2:first-child {
+            margin-top: 0;
+        }
+        
+        .content h3 {
+            color: #764ba2;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .content p {
+            margin-bottom: 15px;
+        }
+        
+        .content ul, .content ol {
+            margin-left: 30px;
+            margin-bottom: 15px;
+        }
+        
+        .content li {
+            margin-bottom: 10px;
+        }
+        
+        .faq-item {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .faq-item h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        
+        .contact-box {
+            background: #f0f4ff;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .contact-box h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .contact-box a {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            transition: background 0.3s ease;
+        }
+        
+        .contact-box a:hover {
+            background: #764ba2;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 30px 20px;
+            color: #666;
+        }
+        
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        footer a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+            
+            .content {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← 返回首页</a>
+        
+        <header>
+            <h1>帮助与支持</h1>
+            <p>使用指南与常见问题</p>
+        </header>
+        
+        <div class="content">
+            <h2>使用指南</h2>
+            
+            <h3>快速开始</h3>
+            <ol>
+                <li><strong>授予权限：</strong>首次启动应用时，请授予照片库访问权限</li>
+                <li><strong>设置筛选条件：</strong>选择要整理的照片日期范围和类型</li>
+                <li><strong>开始整理：</strong>通过左右滑动卡片快速决定保留或删除</li>
+                <li><strong>确认删除：</strong>会话结束后，确认要删除的照片</li>
+            </ol>
+            
+            <h3>手势操作</h3>
+            <ul>
+                <li><strong>向右滑动：</strong>保留当前照片</li>
+                <li><strong>向左滑动：</strong>标记当前照片为删除</li>
+                <li><strong>点击照片：</strong>查看大图</li>
+                <li><strong>双指缩放：</strong>在大图模式下放大查看细节</li>
+                <li><strong>点击播放按钮：</strong>播放视频或 Live Photo</li>
+            </ul>
+            
+            <h3>筛选选项</h3>
+            <ul>
+                <li><strong>日期范围：</strong>选择特定时间段的照片</li>
+                <li><strong>媒体类型：</strong>可选择照片、视频或 Live Photo</li>
+                <li><strong>批量模式：</strong>快速浏览和删除相似照片</li>
+            </ul>
+            
+            <h2>常见问题</h2>
+            
+            <div class="faq-item">
+                <h3>Q: 删除的照片可以恢复吗？</h3>
+                <p>A: 可以。删除的照片会先进入 iOS 相册的"最近删除"文件夹，在那里会保留 30 天。在此期间，您可以随时恢复误删的照片。</p>
+            </div>
+            
+            <div class="faq-item">
+                <h3>Q: 应用会上传我的照片吗？</h3>
+                <p>A: 绝对不会。PhotoTidy 完全在您的设备上本地运行，不会上传、传输或分享您的任何照片或个人信息。</p>
+            </div>
+            
+            <div class="faq-item">
+                <h3>Q: 为什么需要照片访问权限？</h3>
+                <p>A: 应用需要访问您的照片库才能显示和管理照片。您可以选择授予"完全访问"或"选择的照片"权限。建议授予完全访问以获得最佳体验。</p>
+            </div>
+            
+            <div class="faq-item">
+                <h3>Q: 如何移除广告？</h3>
+                <p>A: 您可以通过应用内购买"移除广告"功能。这是一次性付费，购买后将永久移除所有广告。</p>
+            </div>
+            
+            <div class="faq-item">
+                <h3>Q: 应用支持 iCloud 照片库吗？</h3>
+                <p>A: 是的。如果您启用了 iCloud 照片库，应用可以访问所有已同步的照片和视频。请注意，删除照片也会从 iCloud 中删除。</p>
+            </div>
+            
+            <div class="faq-item">
+                <h3>Q: 整理会话中的进度会保存吗？</h3>
+                <p>A: 会话进度会临时保存。如果您中途退出，下次启动应用时可以选择继续上次的会话或开始新的会话。</p>
+            </div>
+            
+            <div class="faq-item">
+                <h3>Q: 支持 iPad 吗？</h3>
+                <p>A: 目前应用主要针对 iPhone 优化，但也可以在 iPad 上运行。我们计划在未来版本中提供更好的 iPad 支持。</p>
+            </div>
+            
+            <div class="faq-item">
+                <h3>Q: 如何更改应用语言？</h3>
+                <p>A: 应用会自动跟随您设备的系统语言设置。目前支持中文和英文。</p>
+            </div>
+            
+            <h2>系统要求</h2>
+            <ul>
+                <li><strong>iOS 版本：</strong>iOS 14.0 或更高版本</li>
+                <li><strong>设备：</strong>iPhone、iPad 和 iPod touch</li>
+                <li><strong>存储空间：</strong>约 20 MB</li>
+                <li><strong>权限：</strong>照片库访问权限</li>
+            </ul>
+            
+            <h2>提示与技巧</h2>
+            <ul>
+                <li>定期整理照片可以节省设备存储空间并提升系统性能</li>
+                <li>建议先从最旧的照片开始整理，这样更容易识别不需要的照片</li>
+                <li>整理前可以先将重要照片添加到相册中，避免误删</li>
+                <li>在良好的光线下使用应用，更容易判断照片质量</li>
+                <li>使用双指缩放功能仔细检查照片细节</li>
+            </ul>
+            
+            <div class="contact-box">
+                <h3>需要更多帮助？</h3>
+                <p>如果您有任何问题、建议或反馈，请随时联系我们：</p>
+                <a href="mailto:fangdev1063@gmail.com">发送邮件给我们</a>
+                <p style="margin-top: 20px; color: #666; font-size: 0.9em;">
+                    我们通常在 48 小时内回复。感谢您的支持！
+                </p>
+            </div>
+        </div>
+        
+        <footer>
+            <p><a href="index.html">返回首页</a> | <a href="privacy.html">隐私政策</a></p>
+            <p style="margin-top: 15px;">联系开发者：<a href="mailto:fangdev1063@gmail.com">fangdev1063@gmail.com</a></p>
+            <p style="margin-top: 10px; color: #999;">© 2025 PhotoTidy. All rights reserved.</p>
+        </footer>
+    </div>
+</body>
+</html>
+
