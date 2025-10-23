@@ -946,6 +946,9 @@ struct CardReviewView: View {
         // 取消之前的加载任务
         loadTask?.cancel()
         
+        // ✅ 立即设置为加载中状态，避免在清空内容时误判为加载失败
+        isLoadingImage = true
+        
         // 重置进度
         loadProgress = 0.0
         
