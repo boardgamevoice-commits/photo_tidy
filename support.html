@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Help & Support - PhotoTidy</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.8;
+            color: #333;
+            background: #f5f5f7;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .content {
+            background: white;
+            border-radius: 10px;
+            padding: 50px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+        }
+        
+        .content h2 {
+            color: #667eea;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        .content h2:first-child {
+            margin-top: 0;
+        }
+        
+        .content h3 {
+            color: #764ba2;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .content p {
+            margin-bottom: 15px;
+        }
+        
+        .content ul, .content ol {
+            margin-left: 30px;
+            margin-bottom: 15px;
+        }
+        
+        .content li {
+            margin-bottom: 10px;
+        }
+        
+        .faq-item {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .faq-item h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        
+        .contact-box {
+            background: #f0f4ff;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .contact-box h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .contact-box a {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            transition: background 0.3s ease;
+        }
+        
+        .contact-box a:hover {
+            background: #764ba2;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 30px 20px;
+            color: #666;
+        }
+        
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        footer a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+            
+            .content {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Home</a>
+        
+        <header>
+            <h1>Help & Support</h1>
+            <p>User Guide & Frequently Asked Questions</p>
+        </header>
+        
+        <div class="content">
+            <h2>User Guide</h2>
+            
+            <h3>Quick Start</h3>
+            <ol>
+                <li><strong>Grant Permission:</strong> When launching the app for the first time, please grant photo library access permission</li>
+                <li><strong>Set Filter Conditions:</strong> Choose the date range and type of photos to organize</li>
+                <li><strong>Start Organizing:</strong> Quickly decide to keep or delete by swiping cards left or right</li>
+                <li><strong>Confirm Deletion:</strong> After the session ends, confirm the photos to be deleted</li>
+            </ol>
+            
+            <h3>Gesture Operations</h3>
+            <ul>
+                <li><strong>Swipe Right:</strong> Keep the current photo</li>
+                <li><strong>Swipe Left:</strong> Mark the current photo for deletion</li>
+                <li><strong>Tap Photo:</strong> View full-size image</li>
+                <li><strong>Pinch to Zoom:</strong> Zoom in to view details in full-size mode</li>
+                <li><strong>Tap Play Button:</strong> Play video or Live Photo</li>
+            </ul>
+            
+            <h3>Filter Options</h3>
+            <ul>
+                <li><strong>Date Range:</strong> Select photos from specific time periods</li>
+                <li><strong>Media Type:</strong> Choose photos, videos, or Live Photos</li>
+                <li><strong>Batch Mode:</strong> Quickly browse and delete similar photos</li>
+            </ul>
+            
+            <h2>Frequently Asked Questions</h2>
+            
+            <div class="faq-item">
+                <h3>Q: Can deleted photos be recovered?</h3>
+                <p>A: Yes. Deleted photos will first go to the "Recently Deleted" folder in iOS Photos, where they will be kept for 30 days. During this time, you can recover accidentally deleted photos at any time.</p>
+            </div>
+            
+            <div class="faq-item">
+                <h3>Q: Will the app upload my photos?</h3>
+                <p>A: Absolutely not. PhotoTidy runs completely locally on your device and will not upload, transmit, or share any of your photos or personal information.</p>
+            </div>
+            
+            <div class="faq-item">
+                <h3>Q: Why is photo access permission needed?</h3>
+                <p>A: The app needs access to your photo library to display and manage photos. You can choose to grant "Full Access" or "Selected Photos" permission. We recommend granting full access for the best experience.</p>
+            </div>
+            
+            <div class="faq-item">
+                <h3>Q: How to remove ads?</h3>
+                <p>A: You can purchase the "Remove Ads" feature through in-app purchase. This is a one-time payment, and all ads will be permanently removed after purchase.</p>
+            </div>
+            
+            <div class="faq-item">
+                <h3>Q: Does the app support iCloud Photo Library?</h3>
+                <p>A: Yes. If you have enabled iCloud Photo Library, the app can access all synced photos and videos. Please note that deleting photos will also delete them from iCloud.</p>
+            </div>
+            
+            <div class="faq-item">
+                <h3>Q: Will progress in organization sessions be saved?</h3>
+                <p>A: Session progress is temporarily saved. If you exit midway, you can choose to continue the previous session or start a new session when you launch the app next time.</p>
+            </div>
+            
+            <div class="faq-item">
+                <h3>Q: Does it support iPad?</h3>
+                <p>A: Currently, the app is mainly optimized for iPhone, but it can also run on iPad. We plan to provide better iPad support in future versions.</p>
+            </div>
+            
+            <div class="faq-item">
+                <h3>Q: How to change the app language?</h3>
+                <p>A: The app will automatically follow your device's system language settings. Currently supports Chinese and English.</p>
+            </div>
+            
+            <h2>System Requirements</h2>
+            <ul>
+                <li><strong>iOS Version:</strong> iOS 14.0 or higher</li>
+                <li><strong>Device:</strong> iPhone, iPad, and iPod touch</li>
+                <li><strong>Storage:</strong> Approximately 20 MB</li>
+                <li><strong>Permission:</strong> Photo library access permission</li>
+            </ul>
+            
+            <h2>Tips & Tricks</h2>
+            <ul>
+                <li>Regularly organizing photos can save device storage space and improve system performance</li>
+                <li>We recommend starting with the oldest photos first, as it's easier to identify unwanted photos</li>
+                <li>Before organizing, you can add important photos to albums to avoid accidental deletion</li>
+                <li>Use the app in good lighting to better judge photo quality</li>
+                <li>Use pinch-to-zoom to carefully examine photo details</li>
+            </ul>
+            
+            <div class="contact-box">
+                <h3>Need More Help?</h3>
+                <p>If you have any questions, suggestions, or feedback, please feel free to contact us:</p>
+                <a href="mailto:fangdev1063@gmail.com">Send us an email</a>
+                <p style="margin-top: 20px; color: #666; font-size: 0.9em;">
+                    We usually respond within 48 hours. Thank you for your support!
+                </p>
+            </div>
+        </div>
+        
+        <footer>
+            <p><a href="index.html">Back to Home</a> | <a href="privacy.html">Privacy Policy</a></p>
+            <p style="margin-top: 15px;">Contact Developer: <a href="mailto:fangdev1063@gmail.com">fangdev1063@gmail.com</a></p>
+            <p style="margin-top: 10px; color: #999;">© 2025 PhotoTidy. All rights reserved.</p>
+        </footer>
+    </div>
+</body>
+</html>
