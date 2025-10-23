@@ -10,22 +10,13 @@ import Photos
 
 struct ContentView: View {
     @StateObject private var viewModel = TidySessionViewModel()
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     
     var body: some View {
         Group {
             if viewModel.isLoading {
-                ZStack {
-                    // 使用系统背景色以适配浅色/深色模式
-                    Color(.systemBackground).ignoresSafeArea()
-                    VStack(spacing: 20) {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                            .scaleEffect(1.5)
-                        Text(L10n.Loading.general)
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                    }
-                }
+                loadingView
             } else if viewModel.isSessionCompleted {
                 // 会话完成界面
                 SessionCompleteView(viewModel: viewModel)
@@ -37,7 +28,9 @@ struct ContentView: View {
                 CardReviewView(viewModel: viewModel)
             }
         }
-        .alert(L10n.Error.title, isPresented: .constant(viewModel.errorMessage != nil)) {
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, isIPad ? 40 : 16)
+        .alert(L10n.Error.title, isPresented: Binding.constant(viewModel.errorMessage != nil)) {
             Button(L10n.Button.confirm) {
                 viewModel.errorMessage = nil
             }
@@ -53,6 +46,29 @@ struct ContentView: View {
                 Text(error)
             }
         }
+    }
+    
+    // MARK: - Loading View
+    
+    private var loadingView: some View {
+        ZStack {
+            // 使用系统背景色以适配浅色/深色模式
+            Color(.systemBackground).ignoresSafeArea()
+            VStack(spacing: isIPad ? 30 : 20) {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                    .scaleEffect(isIPad ? 2.0 : 1.5)
+                Text(L10n.Loading.general)
+                    .font(.system(size: isIPad ? 22 : 18, weight: .semibold))
+                    .foregroundColor(.primary)
+            }
+        }
+    }
+    
+    // MARK: - Device Detection
+    
+    private var isIPad: Bool {
+        horizontalSizeClass == .regular && verticalSizeClass == .regular
     }
     
     // MARK: - Helper Methods

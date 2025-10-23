@@ -11,6 +11,8 @@ import Photos
 /// 会话设置视图 - 用户配置整理会话的界面
 struct SessionSetupView: View {
     @ObservedObject var viewModel: TidySessionViewModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     
     // MARK: - State Properties
     
@@ -38,33 +40,11 @@ struct SessionSetupView: View {
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 30) {
-                    // 标题区域
-                    headerSection
-                    
-                    // 激励广告卡片
-                    rewardedAdSection
-                    
-                    // 统计卡片（如果有完成的会话）
-                    if viewModel.isSessionCompleted {
-                        sessionCompletedCard
-                    }
-                    
-                    // 数量选择区域 (F-02)
-                    photoCountSection
-                    
-                    // 启动按钮
-                    startButton
-                    
-                    // 快速过滤选项
-                    quickFiltersSection
-                    
-                    // 高级过滤入口 (F-03.1)
-                    advancedFilterButton
-                    
-                    Spacer(minLength: 20)
+                if isIPad {
+                    iPadLayout
+                } else {
+                    iPhoneLayout
                 }
-                .padding()
             }
             .navigationTitle(L10n.SessionSetup.title)
             .navigationBarTitleDisplayMode(.inline)
@@ -79,48 +59,123 @@ struct SessionSetupView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingAdvancedFilter) {
-                AdvancedFilterView(filterConfig: $filterConfig)
-            }
-            .sheet(isPresented: $showingSettings) {
-                SettingsView()
-            }
-            .onChange(of: filterConfig) { _ in
-                saveUserPreferences()
-            }
-            .alert(L10n.Alert.hint, isPresented: $showingError) {
-                Button(L10n.Button.confirm, role: .cancel) {
-                    viewModel.errorMessage = nil
-                }
-            } message: {
-                Text(viewModel.errorMessage ?? L10n.Error.general)
-            }
-            .onAppear {
-                loadUserPreferences()
-                updateAdFreeStatus()
-                startAdStatusCheck()
-            }
-            .onDisappear {
-                stopAdStatusCheck()
-            }
-            .onChange(of: viewModel.errorMessage) { newValue in
-                showingError = newValue != nil
-            }
-            .alert(rewardedAdResultMessage, isPresented: $showingRewardedAdResult) {
-                Button(L10n.Button.confirm, role: .cancel) { }
-            }
         }
+        .navigationViewStyle(StackNavigationViewStyle())
+        .sheet(isPresented: $showingAdvancedFilter) {
+            AdvancedFilterView(filterConfig: $filterConfig)
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+        }
+        .onChange(of: filterConfig) { _ in
+            saveUserPreferences()
+        }
+        .alert(L10n.Alert.hint, isPresented: $showingError) {
+            Button(L10n.Button.confirm, role: .cancel) {
+                viewModel.errorMessage = nil
+            }
+        } message: {
+            Text(viewModel.errorMessage ?? L10n.Error.general)
+        }
+        .onAppear {
+            loadUserPreferences()
+            updateAdFreeStatus()
+            startAdStatusCheck()
+        }
+        .onDisappear {
+            stopAdStatusCheck()
+        }
+        .onChange(of: viewModel.errorMessage) { newValue in
+            showingError = newValue != nil
+        }
+        .alert(rewardedAdResultMessage, isPresented: $showingRewardedAdResult) {
+            Button(L10n.Button.confirm, role: .cancel) { }
+        }
+    }
+    
+    // MARK: - Device Detection
+    
+    private var isIPad: Bool {
+        horizontalSizeClass == .regular && verticalSizeClass == .regular
+    }
+    
+    // MARK: - Layout Variants
+    
+    private var iPhoneLayout: some View {
+        VStack(spacing: 30) {
+            // 标题区域
+            headerSection
+            
+            // 激励广告卡片
+            rewardedAdSection
+            
+            // 统计卡片（如果有完成的会话）
+            if viewModel.isSessionCompleted {
+                sessionCompletedCard
+            }
+            
+            // 数量选择区域 (F-02)
+            photoCountSection
+            
+            // 启动按钮
+            startButton
+            
+            // 快速过滤选项
+            quickFiltersSection
+            
+            // 高级过滤入口 (F-03.1)
+            advancedFilterButton
+            
+            Spacer(minLength: 20)
+        }
+        .padding()
+    }
+    
+    private var iPadLayout: some View {
+        VStack(spacing: 40) {
+            // 标题区域
+            headerSection
+            
+            // 激励广告卡片
+            rewardedAdSection
+            
+            // 统计卡片（如果有完成的会话）
+            if viewModel.isSessionCompleted {
+                sessionCompletedCard
+            }
+            
+            // iPad 双列布局
+            HStack(alignment: .top, spacing: 30) {
+                // 左列：数量选择和启动按钮
+                VStack(spacing: 30) {
+                    photoCountSection
+                    startButton
+                }
+                .frame(maxWidth: .infinity)
+                
+                // 右列：过滤选项
+                VStack(spacing: 30) {
+                    quickFiltersSection
+                    advancedFilterButton
+                }
+                .frame(maxWidth: .infinity)
+            }
+            
+            Spacer(minLength: 40)
+        }
+        .padding(.horizontal, 40)
+        .padding(.vertical, 20)
     }
     
     // MARK: - Header Section
     
     private var headerSection: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: isIPad ? 30 : 20) {
             // 左侧图标
             Image(systemName: "photo.stack.fill")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 70, height: 70)
+                .frame(width: isIPad ? 90 : 70, height: isIPad ? 90 : 70)
                 .foregroundStyle(
                     LinearGradient(
                         colors: [.blue, .purple],
@@ -130,20 +185,20 @@ struct SessionSetupView: View {
                 )
             
             // 右侧文本（垂直排列）
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: isIPad ? 12 : 8) {
                 Text(L10n.App.name)
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.system(size: isIPad ? 40 : 32, weight: .bold, design: .rounded))
                 
                 Text(L10n.App.tagline)
-                    .font(.subheadline)
+                    .font(.system(size: isIPad ? 18 : 16))
                     .foregroundColor(.secondary)
                     .lineLimit(2)
             }
             
             Spacer()
         }
-        .padding(.top, 20)
-        .padding(.horizontal, 5)
+        .padding(.top, isIPad ? 30 : 20)
+        .padding(.horizontal, isIPad ? 10 : 5)
     }
     
     // MARK: - Rewarded Ad Section
@@ -331,12 +386,13 @@ struct SessionSetupView: View {
     // MARK: - Photo Count Section (F-02)
     
     private var photoCountSection: some View {
-        VStack(alignment: .leading, spacing: 15) {
+        VStack(alignment: .leading, spacing: isIPad ? 20 : 15) {
             HStack {
                 Image(systemName: "photo.on.rectangle.angled")
                     .foregroundColor(.blue)
+                    .font(.title2)
                 Text(L10n.SessionSetup.photoCount)
-                    .font(.headline)
+                    .font(.system(size: isIPad ? 20 : 18, weight: .semibold))
                 Spacer()
             }
             
@@ -344,7 +400,7 @@ struct SessionSetupView: View {
             HStack {
                 Spacer()
                 Text("\(Int(photoCount))")
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .font(.system(size: isIPad ? 60 : 48, weight: .bold, design: .rounded))
                     .foregroundStyle(
                         LinearGradient(
                             colors: [.blue, .purple],
@@ -353,15 +409,15 @@ struct SessionSetupView: View {
                         )
                     )
                 Text(L10n.SessionSetup.unitPhoto)
-                    .font(.title2)
+                    .font(.system(size: isIPad ? 24 : 20))
                     .foregroundColor(.secondary)
                     .padding(.leading, 5)
                 Spacer()
             }
-            .padding(.vertical, 10)
+            .padding(.vertical, isIPad ? 15 : 10)
             
             // Slider
-            VStack(spacing: 8) {
+            VStack(spacing: isIPad ? 12 : 8) {
                 Slider(value: $photoCount, in: 10...100, step: 5)
                     .accentColor(.blue)
                     .onChange(of: photoCount) { newValue in
@@ -370,17 +426,17 @@ struct SessionSetupView: View {
                 
                 HStack {
                     Text("10")
-                        .font(.caption)
+                        .font(.system(size: isIPad ? 14 : 12))
                         .foregroundColor(.secondary)
                     Spacer()
                     Text("100")
-                        .font(.caption)
+                        .font(.system(size: isIPad ? 14 : 12))
                         .foregroundColor(.secondary)
                 }
             }
             
             // 预设按钮
-            HStack(spacing: 12) {
+            HStack(spacing: isIPad ? 16 : 12) {
                 PresetButton(value: 10, currentValue: $photoCount, label: L10n.SessionSetup.Preset.quick)
                 PresetButton(value: 30, currentValue: $photoCount, label: L10n.SessionSetup.Preset.standard)
                 PresetButton(value: 50, currentValue: $photoCount, label: L10n.SessionSetup.Preset.deep)
@@ -388,25 +444,26 @@ struct SessionSetupView: View {
         }
         .padding()
         .background(
-            RoundedRectangle(cornerRadius: 15)
+            RoundedRectangle(cornerRadius: isIPad ? 20 : 15)
                 .fill(Color(.systemBackground))
-                .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                .shadow(color: Color.black.opacity(0.1), radius: isIPad ? 8 : 5, x: 0, y: isIPad ? 4 : 2)
         )
     }
     
     // MARK: - Quick Filters Section
     
     private var quickFiltersSection: some View {
-        VStack(alignment: .leading, spacing: 15) {
+        VStack(alignment: .leading, spacing: isIPad ? 20 : 15) {
             HStack {
                 Image(systemName: "line.3.horizontal.decrease.circle")
                     .foregroundColor(.purple)
+                    .font(.title2)
                 Text(L10n.SessionSetup.quickFilters)
-                    .font(.headline)
+                    .font(.system(size: isIPad ? 20 : 18, weight: .semibold))
                 Spacer()
             }
             
-            VStack(spacing: 12) {
+            VStack(spacing: isIPad ? 16 : 12) {
                 FilterToggle(
                     icon: "eye.slash.fill",
                     title: L10n.Filter.excludeHiddenPhotos,
@@ -430,9 +487,9 @@ struct SessionSetupView: View {
         }
         .padding()
         .background(
-            RoundedRectangle(cornerRadius: 15)
+            RoundedRectangle(cornerRadius: isIPad ? 20 : 15)
                 .fill(Color(.systemBackground))
-                .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                .shadow(color: Color.black.opacity(0.1), radius: isIPad ? 8 : 5, x: 0, y: isIPad ? 4 : 2)
         )
     }
     
@@ -477,21 +534,21 @@ struct SessionSetupView: View {
         Button(action: {
             startSession()
         }) {
-            HStack(spacing: 12) {
+            HStack(spacing: isIPad ? 16 : 12) {
                 if viewModel.isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(0.9)
+                        .scaleEffect(isIPad ? 1.1 : 0.9)
                 } else {
                     Image(systemName: "play.fill")
-                        .font(.title3)
+                        .font(isIPad ? .title2 : .title3)
                 }
                 Text(viewModel.isLoading ? L10n.Loading.general : (viewModel.isSessionCompleted ? L10n.Button.startNewSession : L10n.Button.start))
-                    .font(.headline)
+                    .font(.system(size: isIPad ? 20 : 18, weight: .semibold))
             }
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
-            .padding()
+            .padding(isIPad ? EdgeInsets(top: 20, leading: 30, bottom: 20, trailing: 30) : EdgeInsets(top: 16, leading: 24, bottom: 16, trailing: 24))
             .background(
                 LinearGradient(
                     colors: viewModel.isLoading ? [.gray, .gray.opacity(0.8)] : [.blue, .purple],
@@ -499,11 +556,11 @@ struct SessionSetupView: View {
                     endPoint: .trailing
                 )
             )
-            .cornerRadius(15)
-            .shadow(color: viewModel.isLoading ? Color.gray.opacity(0.2) : Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
-            .animation(.easeInOut(duration: 0.3), value: viewModel.isLoading)
+            .cornerRadius(isIPad ? 16 : 12)
         }
         .disabled(viewModel.isLoading)
+        .shadow(color: viewModel.isLoading ? Color.gray.opacity(0.2) : Color.blue.opacity(0.3), radius: isIPad ? 12 : 10, x: 0, y: isIPad ? 6 : 5)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.isLoading)
     }
     
     // MARK: - Actions
@@ -626,9 +683,15 @@ struct PresetButton: View {
     let value: Double
     @Binding var currentValue: Double
     let label: String
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     
     var isSelected: Bool {
         currentValue == value
+    }
+    
+    private var isIPad: Bool {
+        horizontalSizeClass == .regular && verticalSizeClass == .regular
     }
     
     var body: some View {
@@ -637,17 +700,16 @@ struct PresetButton: View {
                 currentValue = value
             }
         }) {
-            VStack(spacing: 6) {
+            VStack(spacing: isIPad ? 8 : 6) {
                 Text("\(Int(value))")
-                    .font(.title3)
-                    .fontWeight(.bold)
+                    .font(.system(size: isIPad ? 20 : 18, weight: .bold))
                 Text(label)
-                    .font(.caption)
+                    .font(.system(size: isIPad ? 14 : 12))
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            .padding(.vertical, isIPad ? 16 : 12)
             .background(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: isIPad ? 12 : 10)
                     .fill(isSelected ? Color.blue : Color.gray.opacity(0.15))
             )
             .foregroundColor(isSelected ? .white : .primary)
@@ -661,16 +723,23 @@ struct FilterToggle: View {
     let title: String
     @Binding var isOn: Bool
     let color: Color
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    
+    private var isIPad: Bool {
+        horizontalSizeClass == .regular && verticalSizeClass == .regular
+    }
     
     var body: some View {
         Toggle(isOn: $isOn) {
-            HStack(spacing: 12) {
+            HStack(spacing: isIPad ? 16 : 12) {
                 Image(systemName: icon)
                     .foregroundColor(color)
-                    .frame(width: 24)
+                    .frame(width: isIPad ? 28 : 24)
+                    .font(isIPad ? .title3 : .body)
                 
                 Text(title)
-                    .font(.subheadline)
+                    .font(.system(size: isIPad ? 18 : 16))
             }
         }
         .toggleStyle(SwitchToggleStyle(tint: color))

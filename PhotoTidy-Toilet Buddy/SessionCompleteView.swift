@@ -10,6 +10,8 @@ import SwiftUI
 /// 会话完成视图 - 显示任务总结
 struct SessionCompleteView: View {
     @ObservedObject var viewModel: TidySessionViewModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     
     @State private var showingAd = false
     @State private var animateStats = false
@@ -22,48 +24,54 @@ struct SessionCompleteView: View {
     // Review待删除照片状态
     @State private var showReviewDeletions = false
     
+    // MARK: - Device Detection
+    
+    private var isIPad: Bool {
+        horizontalSizeClass == .regular && verticalSizeClass == .regular
+    }
+    
     // MARK: - Body
     
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 30) {
+                VStack(spacing: isIPad ? 40 : 30) {
                     Spacer()
-                        .frame(height: 40)
+                        .frame(height: isIPad ? 60 : 40)
                     
                     // 成功图标
                     successIcon
                     
                     // 标题
-                    VStack(spacing: 10) {
+                    VStack(spacing: isIPad ? 15 : 10) {
                         Text(L10n.SessionComplete.title)
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .font(.system(size: isIPad ? 48 : 36, weight: .bold, design: .rounded))
                         
                         Text(L10n.SessionComplete.subtitle)
-                            .font(.title3)
+                            .font(.system(size: isIPad ? 22 : 18))
                             .foregroundColor(.secondary)
                     }
                     
                     // 开始新任务按钮
                     startNewSessionButton
-                        .padding(.horizontal, 30)
+                        .padding(.horizontal, isIPad ? 50 : 30)
                     
                     // 统计卡片
                     statisticsCard
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, isIPad ? 40 : 20)
                     
                     // Review待删除照片卡片
                     if viewModel.pendingDeletionCount > 0 {
                         reviewDeletionsCard
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, isIPad ? 40 : 20)
                     }
                     
                     // 详细信息
                     detailsSection
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, isIPad ? 40 : 20)
                     
                     Spacer()
-                        .frame(height: 30)
+                        .frame(height: isIPad ? 50 : 30)
                 }
             }
             .navigationBarHidden(true)
@@ -85,6 +93,7 @@ struct SessionCompleteView: View {
                 .ignoresSafeArea()
             )
         }
+        .navigationViewStyle(StackNavigationViewStyle())
         .sheet(isPresented: $showReviewDeletions) {
             ReviewDeletionsView(viewModel: viewModel)
         }
@@ -107,11 +116,11 @@ struct SessionCompleteView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(width: 120, height: 120)
-                .shadow(color: .green.opacity(0.3), radius: 20, x: 0, y: 10)
+                .frame(width: isIPad ? 160 : 120, height: isIPad ? 160 : 120)
+                .shadow(color: .green.opacity(0.3), radius: isIPad ? 25 : 20, x: 0, y: isIPad ? 12 : 10)
             
             Image(systemName: "checkmark")
-                .font(.system(size: 60, weight: .bold))
+                .font(.system(size: isIPad ? 80 : 60, weight: .bold))
                 .foregroundColor(.white)
         }
         .scaleEffect(animateStats ? 1.0 : 0.5)
@@ -121,7 +130,7 @@ struct SessionCompleteView: View {
     // MARK: - Statistics Card
     
     private var statisticsCard: some View {
-        VStack(spacing: 25) {
+        VStack(spacing: isIPad ? 35 : 25) {
             // 删除统计
             StatRow(
                 icon: "trash.fill",
