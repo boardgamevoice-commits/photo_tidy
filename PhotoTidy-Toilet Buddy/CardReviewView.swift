@@ -705,9 +705,28 @@ struct CardReviewView: View {
                 
                 if isLoadingImage {
                     VStack(spacing: 20) {
-                        ProgressView(value: loadProgress, total: 1.0)
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(1.5)
+                        // 使用更平滑的加载动画
+                        ZStack {
+                            // 背景圆圈
+                            Circle()
+                                .stroke(Color.white.opacity(0.2), lineWidth: 3)
+                                .frame(width: 60, height: 60)
+                            
+                            // 进度圆圈
+                            Circle()
+                                .trim(from: 0, to: loadProgress)
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [.blue, .purple],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                                )
+                                .frame(width: 60, height: 60)
+                                .rotationEffect(.degrees(-90))
+                                .animation(.easeInOut(duration: 0.3), value: loadProgress)
+                        }
                         
                         VStack(spacing: 8) {
                             Text(L10n.Loading.general)
@@ -718,9 +737,11 @@ struct CardReviewView: View {
                                 Text("\(Int(loadProgress * 100))%")
                                     .font(.caption)
                                     .foregroundColor(.white.opacity(0.5))
+                                    .transition(.opacity.combined(with: .scale))
                             }
                         }
                     }
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 } else if currentImage == nil && currentLivePhoto == nil && videoPlayer == nil {
                     // 加载失败，显示错误和重试（只有真的没有任何内容时才显示）
                     VStack(spacing: 25) {
@@ -1184,6 +1205,7 @@ struct CardReviewView: View {
         }
     }
     
+    
     // MARK: - 缩放手势处理
     
     /// 双击放大/缩小
@@ -1315,10 +1337,49 @@ struct CardReviewView: View {
         // 取消之前的加载任务
         loadTask?.cancel()
         
-        // ✅ 立即设置为加载中状态，避免在清空内容时误判为加载失败
-        isLoadingImage = true
+        guard let currentPhoto = viewModel.currentPhoto else {
+            // 没有当前照片时，清空状态并停止加载
+            isLoadingImage = false
+            currentImage = nil
+            currentLivePhoto = nil
+            videoPlayer?.pause()
+            videoPlayer = nil
+            isPlayingVideo = false
+            isPlayingLive = false
+            return
+        }
         
-        // 重置进度
+        // 确定媒体类型
+        let asset = currentPhoto.asset
+        let currentIndex = viewModel.currentIndex
+        
+        // 先检查是否有预加载的图片（仅对普通图片有效）
+        if asset.mediaType == .image && !asset.mediaSubtypes.contains(.photoLive) {
+            if let cachedImage = preloadedImages[currentIndex] {
+                // 有预加载缓存，直接使用，无需显示loading
+                AppLogger.shared.debug("使用预加载缓存，索引: \(currentIndex)", category: .photo)
+                
+                // 先清理旧的媒体状态
+                currentLivePhoto = nil
+                videoPlayer?.pause()
+                videoPlayer = nil
+                isPlayingVideo = false
+                isPlayingLive = false
+                
+                // 直接设置图片，无loading状态
+                withAnimation(.easeIn(duration: 0.15)) {
+                    self.currentImage = cachedImage
+                    self.isLoadingImage = false
+                    self.currentMediaType = .image
+                    self.consecutiveFailures = 0
+                }
+                return
+            }
+        }
+        
+        // 没有预加载缓存或不是普通图片，需要加载
+        // 设置加载状态
+        isLoadingImage = true
         loadProgress = 0.0
         
         // 重置媒体状态
@@ -1329,13 +1390,7 @@ struct CardReviewView: View {
         isPlayingVideo = false
         isPlayingLive = false
         
-        guard let currentPhoto = viewModel.currentPhoto else {
-            isLoadingImage = false
-            return
-        }
-        
-        // 确定媒体类型
-        let asset = currentPhoto.asset
+        // 根据媒体类型加载
         if asset.mediaType == .video {
             currentMediaType = .video
             loadVideo(asset: asset)
@@ -1350,18 +1405,8 @@ struct CardReviewView: View {
     
     /// 加载普通照片
     private func loadRegularPhoto(asset: PHAsset) {
-        // 检查是否已经预加载
-        if let cachedImage = preloadedImages[viewModel.currentIndex] {
-            AppLogger.shared.debug("使用预加载缓存，索引: \(viewModel.currentIndex)", category: .photo)
-            withAnimation(.easeIn(duration: 0.2)) {
-                self.currentImage = cachedImage
-                self.isLoadingImage = false
-                self.consecutiveFailures = 0
-            }
-            return
-        }
-        
-        isLoadingImage = true
+        // 注意：预加载检查已移至 loadCurrentPhoto 方法中
+        // 这里只处理没有预加载缓存的情况
         
         // 启动加载任务
         loadTask = Task { @MainActor in
@@ -1494,14 +1539,27 @@ struct CardReviewView: View {
         let currentIndex = viewModel.currentIndex
         let totalPhotos = viewModel.totalPhotos
         
-        // 预加载后面 2 张照片，使用优先级管理
-        let preloadIndices = [
-            (index: currentIndex + 1, priority: PreloadPriority.high),
-            (index: currentIndex + 2, priority: PreloadPriority.medium)
-        ]
+        // 预加载前1张 + 后面2张照片，使用优先级管理
+        var preloadIndices: [(index: Int, priority: PreloadPriority)] = []
+        
+        // 上一张照片（如果不是第一张）
+        if currentIndex > 0 {
+            preloadIndices.append((index: currentIndex - 1, priority: PreloadPriority.high))
+        }
+        
+        // 下一张照片
+        if currentIndex + 1 < totalPhotos {
+            preloadIndices.append((index: currentIndex + 1, priority: PreloadPriority.high))
+        }
+        
+        // 下下张照片
+        if currentIndex + 2 < totalPhotos {
+            preloadIndices.append((index: currentIndex + 2, priority: PreloadPriority.medium))
+        }
         
         for (index, priority) in preloadIndices {
-            guard index < totalPhotos,
+            guard index >= 0,
+                  index < totalPhotos,
                   preloadedImages[index] == nil,
                   !taskManager.hasTask(at: index) else {
                 continue
@@ -1527,7 +1585,7 @@ struct CardReviewView: View {
             taskManager.addTask(index: index, priority: priority, task: task)
         }
         
-        // 清理过期的缓存（距离当前位置超过 3 张）
+        // 清理过期的缓存（距离当前位置超过 2 张）
         cleanupOldCache(currentIndex: currentIndex)
         
         // 记录任务统计
@@ -1535,9 +1593,11 @@ struct CardReviewView: View {
         AppLogger.shared.debug("预加载任务统计: 等待=\(stats.pending), 运行=\(stats.running), 总计=\(stats.total)", category: .photo)
     }
     
+    
     /// 清理过期的缓存
     private func cleanupOldCache(currentIndex: Int) {
-        let keysToRemove = preloadedImages.keys.filter { abs($0 - currentIndex) > 3 }
+        // 保留前1张 + 当前 + 后2张，清理距离超过2张的缓存
+        let keysToRemove = preloadedImages.keys.filter { abs($0 - currentIndex) > 2 }
         for key in keysToRemove {
             preloadedImages.removeValue(forKey: key)
             taskManager.cancelTask(at: key)
