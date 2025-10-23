@@ -41,6 +41,10 @@ struct SessionCompleteView: View {
                             .foregroundColor(.secondary)
                     }
                     
+                    // 开始新任务按钮
+                    startNewSessionButton
+                        .padding(.horizontal, 30)
+                    
                     // 统计卡片
                     statisticsCard
                         .padding(.horizontal, 20)
@@ -50,11 +54,7 @@ struct SessionCompleteView: View {
                         .padding(.horizontal, 20)
                     
                     Spacer()
-                    
-                    // 开始新任务按钮
-                    startNewSessionButton
-                        .padding(.horizontal, 30)
-                        .padding(.bottom, 30)
+                        .frame(height: 30)
                 }
             }
             .navigationBarHidden(true)

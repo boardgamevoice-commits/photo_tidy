@@ -224,3 +224,16 @@
 "validation.suggestion.selfie_accuracy" = "💡 自拍检测使用启发式规则，准确度约 70%";
 "validation.suggestion.burst_date_range" = "💡 最近的连拍照片可能较少，建议扩大日期范围";
 
+/* 激励广告 */
+"rewarded_ad.title" = "无广告体验";
+"rewarded_ad.description" = "观看广告即可享受24小时无广告";
+"rewarded_ad.button_watch" = "观看广告";
+"rewarded_ad.status_active" = "无广告模式";
+"rewarded_ad.status_remaining" = "剩余";
+"rewarded_ad.status_remaining_time" = "剩余 %@";
+"rewarded_ad.reward_received" = "🎉 已激活！享受24小时无广告";
+"rewarded_ad.reward_failed" = "需要看完广告才能获得奖励";
+"rewarded_ad.ad_load_failed" = "广告暂时无法加载，请稍后重试";
+"rewarded_ad.ad_not_ready" = "广告正在加载中...";
+"rewarded_ad.loading" = "加载广告中...";
+

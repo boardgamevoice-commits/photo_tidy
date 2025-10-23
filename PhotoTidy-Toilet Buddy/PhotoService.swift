@@ -16,8 +16,8 @@ class PhotoService: NSObject {
     
     // MARK: - Properties
     
-    /// 存储最近删除的资源信息，用于撤销操作
-    private var deletedAssetsCache: [String: PHAsset] = [:]
+    // Note: deletedAssetsCache 已移除
+    // 撤销功能现在通过 TidySessionViewModel 的延迟删除策略实现
     
     private override init() {
         super.init()
@@ -70,52 +70,14 @@ class PhotoService: NSObject {
         filterConfig: FilterConfiguration
     ) -> [PHAsset] {
         
-        // 1. 构造 PHFetchOptions 和 NSPredicate（直接从 FilterConfiguration）
+        // 1. 使用 PredicateBuilder 构造 PHFetchOptions
         let fetchOptions = PHFetchOptions()
-        var predicates: [NSPredicate] = []
         
-        print("🔍 开始构建过滤条件：\(filterConfig.summary)")
-        
-        // ===== 维度 1: 内容类型过滤 =====
-        let contentTypePredicates = buildContentTypePredicates(filterConfig.contentType)
-        predicates.append(contentsOf: contentTypePredicates)
-        
-        // ===== 维度 2: 日期范围过滤 =====
-        if let datePredicates = buildDateRangePredicates(filterConfig.dateRange) {
-            predicates.append(contentsOf: datePredicates)
-        }
-        
-        // ===== 维度 3: 位置信息过滤 =====
-        if let locationPredicate = buildLocationPredicate(filterConfig.locationFilter) {
-            predicates.append(locationPredicate)
-        }
-        
-        // ===== 维度 4: 视频时长过滤 =====
-        if let durationPredicates = buildDurationPredicates(filterConfig.durationFilter) {
-            predicates.append(contentsOf: durationPredicates)
-        }
-        
-        // ===== 维度 5: 其他过滤（排除隐藏/收藏）=====
-        if filterConfig.excludeHidden {
-            let notHiddenPredicate = NSPredicate(format: "isHidden == NO")
-            predicates.append(notHiddenPredicate)
-            print("  ✓ 排除隐藏")
-        }
-        
-        if filterConfig.excludeFavorite {
-            let notFavoritePredicate = NSPredicate(format: "isFavorite == NO")
-            predicates.append(notFavoritePredicate)
-            print("  ✓ 排除收藏")
-        }
-        
-        // 合并所有 predicate（使用 AND 连接所有维度）
-        let compoundPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
-        fetchOptions.predicate = compoundPredicate
+        // 使用统一的 PredicateBuilder
+        fetchOptions.predicate = PredicateBuilder.buildCombinedPredicate(from: filterConfig)
         
         // 按创建日期降序排列（可选，用于调试）
         fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        
-        print("📊 总共应用了 \(predicates.count) 个过滤条件")
         
         // 2. 获取所有符合条件的资源
         let fetchResult = PHAsset.fetchAssets(with: fetchOptions)
@@ -193,11 +155,9 @@ class PhotoService: NSObject {
     ///   - asset: 要删除的 PHAsset
     ///   - completion: 删除完成后的回调，返回是否成功和错误信息
     func deleteAsset(asset: PHAsset, completion: @escaping (Bool, Error?) -> Void) {
-        // 在删除前，缓存资源信息用于可能的恢复操作
         let identifier = asset.localIdentifier
-        deletedAssetsCache[identifier] = asset
         
-        print("准备删除照片，ID: \(identifier)")
+        AppLogger.shared.photo("准备删除照片，ID: \(identifier)")
         
         PHPhotoLibrary.shared().performChanges {
             // 执行删除操作
@@ -206,12 +166,10 @@ class PhotoService: NSObject {
         } completionHandler: { success, error in
             DispatchQueue.main.async {
                 if success {
-                    print("照片删除成功，ID: \(identifier)")
+                    AppLogger.shared.photo("照片删除成功，ID: \(identifier)")
                     completion(true, nil)
                 } else {
-                    print("照片删除失败，错误: \(error?.localizedDescription ?? "未知错误")")
-                    // 删除失败，从缓存中移除
-                    self.deletedAssetsCache.removeValue(forKey: identifier)
+                    AppLogger.shared.error("照片删除失败", error: error, category: .photo)
                     completion(false, error)
                 }
             }
@@ -233,14 +191,8 @@ class PhotoService: NSObject {
             return
         }
         
-        // 缓存所有要删除的资源
-        for asset in assets {
-            let identifier = asset.localIdentifier
-            deletedAssetsCache[identifier] = asset
-        }
-        
         let totalCount = assets.count
-        print("准备批量删除 \(totalCount) 张照片")
+        AppLogger.shared.photo("准备批量删除 \(totalCount) 张照片")
         
         // 模拟进度（因为 PHPhotoLibrary.performChanges 是原子操作）
         // 在删除前显示进度更新，让用户感觉到进度
@@ -263,77 +215,26 @@ class PhotoService: NSObject {
             
             DispatchQueue.main.async {
                 if success {
-                    print("批量删除成功，共 \(totalCount) 张照片")
+                    AppLogger.shared.photo("批量删除成功，共 \(totalCount) 张照片")
                     // 报告完成进度
                     progressHandler?(totalCount, totalCount)
                     completion(true, nil)
                 } else {
-                    print("批量删除失败，错误: \(error?.localizedDescription ?? "未知错误")")
-                    // 删除失败，从缓存中移除
-                    for asset in assets {
-                        self.deletedAssetsCache.removeValue(forKey: asset.localIdentifier)
-                    }
+                    AppLogger.shared.error("批量删除失败", error: error, category: .photo)
                     completion(false, error)
                 }
             }
         }
     }
     
-    // MARK: - 数据恢复/撤销
-    
-    /// 尝试恢复已删除的照片资源
-    /// 注意：iOS 的 Photos 框架不支持直接恢复已删除的照片
-    /// 这个方法会尝试从 "最近删除" 相册中恢复照片
-    /// - Parameters:
-    ///   - asset: 要恢复的 PHAsset（已删除的）
-    ///   - completion: 恢复完成后的回调
-    func restoreAsset(asset: PHAsset, completion: @escaping (Bool, Error?) -> Void) {
-        let identifier = asset.localIdentifier
-        
-        print("尝试恢复照片，ID: \(identifier)")
-        
-        // 获取 "最近删除" 相册
-        // 注意：iOS 不提供直接访问 "最近删除" 相册的 API
-        let _ = PHAssetCollection.fetchAssetCollections(
-            with: .smartAlbum,
-            subtype: .smartAlbumRecentlyAdded,
-            options: nil
-        )
-        
-        // 备注：以上代码仅用于演示，实际上 iOS 不提供直接访问 "最近删除" 相册的 API
-        // 实际上，PHAssetCollection.Subtype 中没有 .smartAlbumRecentlyDeleted
-        // 这是 iOS 系统的限制，第三方 App 无法直接操作 "最近删除" 相册
-        
-        // 另一种方法：如果照片只是从某个自定义相册中移除，我们可以重新添加回去
-        // 但如果照片已经被彻底删除（进入系统的 "最近删除"），则无法通过 API 恢复
-        
-        print("警告：iOS Photos 框架不支持直接从 '最近删除' 恢复照片")
-        print("用户需要手动在照片 App 中从 '最近删除' 相册恢复")
-        
-        // 返回失败，因为 API 不支持此操作
-        let error = NSError(
-            domain: "PhotoService",
-            code: -1,
-            userInfo: [NSLocalizedDescriptionKey: "iOS 不支持通过 API 恢复已删除的照片。用户需要在照片 App 中手动恢复。"]
-        )
-        
-        DispatchQueue.main.async {
-            completion(false, error)
-        }
-    }
-    
-    /// 从缓存中获取已删除的资源信息
-    /// - Parameter identifier: 资源的 localIdentifier
-    /// - Returns: 缓存的 PHAsset，如果不存在则返回 nil
-    func getCachedDeletedAsset(identifier: String) -> PHAsset? {
-        return deletedAssetsCache[identifier]
-    }
-    
-    /// 清除已删除资源的缓存
-    func clearDeletedAssetsCache() {
-        deletedAssetsCache.removeAll()
-        print("已清除删除缓存")
-    }
+    // MARK: - Note: 照片恢复功能已移除
+    // iOS Photos 框架不支持直接恢复已删除的照片
+    // 用户需要在系统照片 App 的"最近删除"相册中手动恢复
+    // 
+    // 撤销功能通过延迟删除策略实现：
+    // - 照片标记为删除但暂不执行
+    // - 会话结束前可以撤销
+    // - 会话结束后才批量删除
     
     // MARK: - 辅助方法
     
@@ -414,184 +315,6 @@ class PhotoService: NSObject {
             "favorites": favorites.count,
             "total": allPhotos.count + allVideos.count
         ]
-    }
-    
-    // MARK: - 私有辅助方法 - Predicate 构建器
-    
-    /// 构建内容类型过滤 Predicates
-    private func buildContentTypePredicates(_ contentType: ContentType) -> [NSPredicate] {
-        var predicates: [NSPredicate] = []
-        
-        switch contentType {
-        case .all:
-            // 所有媒体：图片和视频
-            let mediaTypePredicate = NSPredicate(format: "mediaType == %d OR mediaType == %d",
-                                                PHAssetMediaType.image.rawValue,
-                                                PHAssetMediaType.video.rawValue)
-            predicates.append(mediaTypePredicate)
-            print("  ✓ 内容类型：所有媒体")
-            
-        case .videos, .slowMotionVideos, .timelapseVideos:
-            // 视频类型
-            let videoPredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.video.rawValue)
-            predicates.append(videoPredicate)
-            
-            // 视频子类型
-            if contentType == .slowMotionVideos {
-                let slowMoPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.videoHighFrameRate.rawValue)
-                predicates.append(slowMoPredicate)
-                print("  ✓ 内容类型：慢动作视频")
-            } else if contentType == .timelapseVideos {
-                let timelapsePredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.videoTimelapse.rawValue)
-                predicates.append(timelapsePredicate)
-                print("  ✓ 内容类型：延时摄影")
-            } else {
-                print("  ✓ 内容类型：所有视频")
-            }
-            
-        case .screenshots:
-            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-            let screenshotPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoScreenshot.rawValue)
-            predicates.append(contentsOf: [imagePredicate, screenshotPredicate])
-            print("  ✓ 内容类型：截图")
-            
-        case .panoramas:
-            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-            let panoramaPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoPanorama.rawValue)
-            predicates.append(contentsOf: [imagePredicate, panoramaPredicate])
-            print("  ✓ 内容类型：全景照片")
-            
-        case .livePhotos:
-            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-            let livePredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoLive.rawValue)
-            predicates.append(contentsOf: [imagePredicate, livePredicate])
-            print("  ✓ 内容类型：Live Photo")
-            
-        case .portraits:
-            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-            let portraitPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoDepthEffect.rawValue)
-            predicates.append(contentsOf: [imagePredicate, portraitPredicate])
-            print("  ✓ 内容类型：人像模式")
-            
-        case .hdrPhotos:
-            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-            let hdrPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoHDR.rawValue)
-            predicates.append(contentsOf: [imagePredicate, hdrPredicate])
-            print("  ✓ 内容类型：HDR 照片")
-            
-        case .bursts:
-            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-            // 修复：使用 burstIdentifier 而不是 representsBurst，包含所有连拍照片
-            let burstPredicate = NSPredicate(format: "burstIdentifier != nil")
-            predicates.append(contentsOf: [imagePredicate, burstPredicate])
-            print("  ✓ 内容类型：连拍照片（所有连拍）")
-            
-        case .selfies:
-            // 自拍需要图片类型 + 后置过滤
-            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-            predicates.append(imagePredicate)
-            print("  ✓ 内容类型：自拍（需后置过滤）")
-        }
-        
-        return predicates
-    }
-    
-    /// 构建日期范围过滤 Predicates
-    private func buildDateRangePredicates(_ dateRange: DateRangeType?) -> [NSPredicate]? {
-        guard let dateRange = dateRange else { return nil }
-        
-        var predicates: [NSPredicate] = []
-        let calendar = Calendar.current
-        let now = Date()
-        let currentYear = calendar.component(.year, from: now)
-        
-        switch dateRange {
-        case .recent7Days:
-            if let startDate = calendar.date(byAdding: .day, value: -7, to: now) {
-                let predicate = NSPredicate(format: "creationDate >= %@", startDate as NSDate)
-                predicates.append(predicate)
-                print("  ✓ 日期范围：最近 7 天")
-            }
-            
-        case .recent30Days:
-            if let startDate = calendar.date(byAdding: .day, value: -30, to: now) {
-                let predicate = NSPredicate(format: "creationDate >= %@", startDate as NSDate)
-                predicates.append(predicate)
-                print("  ✓ 日期范围：最近 30 天")
-            }
-            
-        case .thisYear:
-            // 修复：明确指定年月日
-            if let startOfYear = calendar.date(from: DateComponents(year: currentYear, month: 1, day: 1)) {
-                let predicate = NSPredicate(format: "creationDate >= %@", startOfYear as NSDate)
-                predicates.append(predicate)
-                print("  ✓ 日期范围：今年")
-            }
-            
-        case .lastYear:
-            // 修复：使用明确的边界，避免包含今年第一天
-            let lastYearStart = calendar.date(from: DateComponents(year: currentYear - 1, month: 1, day: 1))
-            let lastYearEnd = calendar.date(from: DateComponents(year: currentYear, month: 1, day: 1))?.addingTimeInterval(-1)
-            
-            if let start = lastYearStart {
-                predicates.append(NSPredicate(format: "creationDate >= %@", start as NSDate))
-            }
-            if let end = lastYearEnd {
-                predicates.append(NSPredicate(format: "creationDate <= %@", end as NSDate))
-            }
-            print("  ✓ 日期范围：去年")
-            
-        case .older1Year:
-            if let oneYearAgo = calendar.date(byAdding: .year, value: -1, to: now) {
-                let predicate = NSPredicate(format: "creationDate < %@", oneYearAgo as NSDate)
-                predicates.append(predicate)
-                print("  ✓ 日期范围：1 年前")
-            }
-            
-        case .older2Years:
-            if let twoYearsAgo = calendar.date(byAdding: .year, value: -2, to: now) {
-                let predicate = NSPredicate(format: "creationDate < %@", twoYearsAgo as NSDate)
-                predicates.append(predicate)
-                print("  ✓ 日期范围：2 年前")
-            }
-        }
-        
-        return predicates.isEmpty ? nil : predicates
-    }
-    
-    /// 构建位置信息过滤 Predicate
-    private func buildLocationPredicate(_ locationFilter: LocationFilterType?) -> NSPredicate? {
-        guard let locationFilter = locationFilter else { return nil }
-        
-        switch locationFilter {
-        case .withLocation:
-            print("  ✓ 位置信息：含位置信息")
-            return NSPredicate(format: "location != nil")
-        case .withoutLocation:
-            print("  ✓ 位置信息：无位置信息")
-            return NSPredicate(format: "location == nil")
-        }
-    }
-    
-    /// 构建视频时长过滤 Predicates
-    private func buildDurationPredicates(_ durationFilter: DurationFilterType?) -> [NSPredicate]? {
-        guard let durationFilter = durationFilter else { return nil }
-        
-        var predicates: [NSPredicate] = []
-        
-        switch durationFilter {
-        case .shortVideos:
-            let predicate = NSPredicate(format: "duration > 0 AND duration <= %f", 30.0)
-            predicates.append(predicate)
-            print("  ✓ 视频时长：短视频 (<30秒)")
-            
-        case .longVideos:
-            let predicate = NSPredicate(format: "duration >= %f", 300.0)
-            predicates.append(predicate)
-            print("  ✓ 视频时长：长视频 (>5分钟)")
-        }
-        
-        return predicates.isEmpty ? nil : predicates
     }
     
     // MARK: - 自拍检测

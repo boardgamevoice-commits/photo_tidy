@@ -168,34 +168,9 @@ class TidySessionViewModel: ObservableObject {
             return (false, "过滤配置有问题：\n\(warningText)")
         }
         
-        // 构建预检查选项（复用 PhotoService 的逻辑）
+        // 使用统一的 PredicateBuilder 构建预检查选项
         let fetchOptions = PHFetchOptions()
-        var predicates: [NSPredicate] = []
-        
-        // 使用与 PhotoService 相同的 predicate 构建逻辑
-        predicates.append(contentsOf: buildContentTypePredicatesForValidation(filterConfig.contentType))
-        
-        if let datePredicates = buildDateRangePredicatesForValidation(filterConfig.dateRange) {
-            predicates.append(contentsOf: datePredicates)
-        }
-        
-        if let locationPredicate = buildLocationPredicateForValidation(filterConfig.locationFilter) {
-            predicates.append(locationPredicate)
-        }
-        
-        if let durationPredicates = buildDurationPredicatesForValidation(filterConfig.durationFilter) {
-            predicates.append(contentsOf: durationPredicates)
-        }
-        
-        if filterConfig.excludeHidden {
-            predicates.append(NSPredicate(format: "isHidden == NO"))
-        }
-        
-        if filterConfig.excludeFavorite {
-            predicates.append(NSPredicate(format: "isFavorite == NO"))
-        }
-        
-        fetchOptions.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+        fetchOptions.predicate = PredicateBuilder.buildCombinedPredicate(from: filterConfig)
         
         // 获取所有符合条件的资源
         let allAssets = PHAsset.fetchAssets(with: fetchOptions)
@@ -526,6 +501,15 @@ class TidySessionViewModel: ObservableObject {
     /// 检查是否应该显示广告
     /// - Returns: 如果达到广告显示阈值则返回 true
     func shouldShowAd() -> Bool {
+        // 1. 检查用户是否处于无广告期间
+        if AdFreeManager.shared.isAdFree() {
+            if let remainingTime = AdFreeManager.shared.getFormattedRemainingTime() {
+                print("✓ 用户处于无广告期间，剩余时间: \(remainingTime)，跳过广告")
+            }
+            return false
+        }
+        
+        // 2. 检查会话计数器是否达到广告显示阈值
         let shouldShow = sessionCounter % adFrequency == 0 && sessionCounter > 0
         print("检查广告显示条件: sessionCounter=\(sessionCounter), adFrequency=\(adFrequency), shouldShow=\(shouldShow)")
         return shouldShow
@@ -779,139 +763,8 @@ class TidySessionViewModel: ObservableObject {
         return formatter.string(fromByteCount: bytes)
     }
     
-    // MARK: - 验证辅助方法（简化版，复用 PhotoService 的逻辑思路）
-    
-    /// 构建内容类型 Predicates（用于验证）
-    private func buildContentTypePredicatesForValidation(_ contentType: ContentType) -> [NSPredicate] {
-        var predicates: [NSPredicate] = []
-        
-        switch contentType {
-        case .all:
-            let mediaTypePredicate = NSPredicate(format: "mediaType == %d OR mediaType == %d",
-                                                PHAssetMediaType.image.rawValue,
-                                                PHAssetMediaType.video.rawValue)
-            predicates.append(mediaTypePredicate)
-            
-        case .videos, .slowMotionVideos, .timelapseVideos:
-            let videoPredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.video.rawValue)
-            predicates.append(videoPredicate)
-            
-            if contentType == .slowMotionVideos {
-                let slowMoPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.videoHighFrameRate.rawValue)
-                predicates.append(slowMoPredicate)
-            } else if contentType == .timelapseVideos {
-                let timelapsePredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.videoTimelapse.rawValue)
-                predicates.append(timelapsePredicate)
-            }
-            
-        case .screenshots:
-            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-            let screenshotPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoScreenshot.rawValue)
-            predicates.append(contentsOf: [imagePredicate, screenshotPredicate])
-            
-        case .panoramas:
-            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-            let panoramaPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoPanorama.rawValue)
-            predicates.append(contentsOf: [imagePredicate, panoramaPredicate])
-            
-        case .livePhotos:
-            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-            let livePredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoLive.rawValue)
-            predicates.append(contentsOf: [imagePredicate, livePredicate])
-            
-        case .portraits:
-            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-            let portraitPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoDepthEffect.rawValue)
-            predicates.append(contentsOf: [imagePredicate, portraitPredicate])
-            
-        case .hdrPhotos:
-            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-            let hdrPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.photoHDR.rawValue)
-            predicates.append(contentsOf: [imagePredicate, hdrPredicate])
-            
-        case .bursts:
-            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-            let burstPredicate = NSPredicate(format: "burstIdentifier != nil")
-            predicates.append(contentsOf: [imagePredicate, burstPredicate])
-            
-        case .selfies:
-            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-            predicates.append(imagePredicate)
-        }
-        
-        return predicates
-    }
-    
-    /// 构建日期范围 Predicates（用于验证）
-    private func buildDateRangePredicatesForValidation(_ dateRange: DateRangeType?) -> [NSPredicate]? {
-        guard let dateRange = dateRange else { return nil }
-        
-        var predicates: [NSPredicate] = []
-        let calendar = Calendar.current
-        let now = Date()
-        let currentYear = calendar.component(.year, from: now)
-        
-        switch dateRange {
-        case .recent7Days:
-            if let startDate = calendar.date(byAdding: .day, value: -7, to: now) {
-                predicates.append(NSPredicate(format: "creationDate >= %@", startDate as NSDate))
-            }
-        case .recent30Days:
-            if let startDate = calendar.date(byAdding: .day, value: -30, to: now) {
-                predicates.append(NSPredicate(format: "creationDate >= %@", startDate as NSDate))
-            }
-        case .thisYear:
-            if let startOfYear = calendar.date(from: DateComponents(year: currentYear, month: 1, day: 1)) {
-                predicates.append(NSPredicate(format: "creationDate >= %@", startOfYear as NSDate))
-            }
-        case .lastYear:
-            let lastYearStart = calendar.date(from: DateComponents(year: currentYear - 1, month: 1, day: 1))
-            let lastYearEnd = calendar.date(from: DateComponents(year: currentYear, month: 1, day: 1))?.addingTimeInterval(-1)
-            if let start = lastYearStart {
-                predicates.append(NSPredicate(format: "creationDate >= %@", start as NSDate))
-            }
-            if let end = lastYearEnd {
-                predicates.append(NSPredicate(format: "creationDate <= %@", end as NSDate))
-            }
-        case .older1Year:
-            if let oneYearAgo = calendar.date(byAdding: .year, value: -1, to: now) {
-                predicates.append(NSPredicate(format: "creationDate < %@", oneYearAgo as NSDate))
-            }
-        case .older2Years:
-            if let twoYearsAgo = calendar.date(byAdding: .year, value: -2, to: now) {
-                predicates.append(NSPredicate(format: "creationDate < %@", twoYearsAgo as NSDate))
-            }
-        }
-        
-        return predicates.isEmpty ? nil : predicates
-    }
-    
-    /// 构建位置 Predicate（用于验证）
-    private func buildLocationPredicateForValidation(_ locationFilter: LocationFilterType?) -> NSPredicate? {
-        guard let locationFilter = locationFilter else { return nil }
-        
-        switch locationFilter {
-        case .withLocation:
-            return NSPredicate(format: "location != nil")
-        case .withoutLocation:
-            return NSPredicate(format: "location == nil")
-        }
-    }
-    
-    /// 构建时长 Predicates（用于验证）
-    private func buildDurationPredicatesForValidation(_ durationFilter: DurationFilterType?) -> [NSPredicate]? {
-        guard let durationFilter = durationFilter else { return nil }
-        
-        var predicates: [NSPredicate] = []
-        
-        switch durationFilter {
-        case .shortVideos:
-            predicates.append(NSPredicate(format: "duration > 0 AND duration <= %f", 30.0))
-        case .longVideos:
-            predicates.append(NSPredicate(format: "duration >= %f", 300.0))
-        }
-        
-        return predicates.isEmpty ? nil : predicates
-    }
+    // MARK: - Note: Predicate构建逻辑已移至 PredicateBuilder
+    // 所有 predicate 构建方法已被统一的 PredicateBuilder 替代
+    // 这样可以消除代码重复，确保逻辑一致性
 }
 

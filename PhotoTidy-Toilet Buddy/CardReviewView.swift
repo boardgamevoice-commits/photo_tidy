@@ -970,6 +970,13 @@ struct CardReviewView: View {
     private func loadVideo(asset: PHAsset) {
         isLoadingImage = true
         
+        // 先清理旧的视频播放器资源
+        if let oldPlayer = videoPlayer {
+            oldPlayer.pause()
+            oldPlayer.replaceCurrentItem(with: nil)
+            print("🎬 已清理旧视频播放器")
+        }
+        
         loadTask = Task { @MainActor in
             do {
                 let playerItem = try await viewModel.loadVideoAsync(asset: asset)
@@ -1057,9 +1064,11 @@ struct CardReviewView: View {
         }
     }
     
-    /// 清理所有任务
+    /// 清理所有任务和资源
     private func cleanupTasks() {
-        print("🧹 清理所有加载任务")
+        print("🧹 清理所有加载任务和资源")
+        
+        // 取消所有异步任务
         loadTask?.cancel()
         animationTask?.cancel()
         
@@ -1068,6 +1077,18 @@ struct CardReviewView: View {
         }
         preloadTasks.removeAll()
         preloadedImages.removeAll()
+        
+        // 清理视频播放器资源
+        if let player = videoPlayer {
+            player.pause()
+            player.replaceCurrentItem(with: nil)
+            videoPlayer = nil
+            print("🎬 已清理视频播放器资源")
+        }
+        
+        // 清理其他媒体资源
+        currentImage = nil
+        currentLivePhoto = nil
     }
     
     // MARK: - 错误处理
@@ -1133,244 +1154,12 @@ struct CardReviewView: View {
 }
 
 // MARK: - Supporting Views
-
-struct StatBadgeCompact: View {
-    let icon: String
-    let count: Int
-    let color: Color
-    
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.caption)
-            Text("\(count)")
-                .font(.caption)
-                .fontWeight(.semibold)
-        }
-        .foregroundColor(color)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(color.opacity(0.2))
-        )
-    }
-}
-
-// MARK: - 媒体类型
-
-/// 媒体类型枚举
-enum MediaType {
-    case image          // 普通照片
-    case livePhoto      // Live Photo
-    case video          // 视频
-    case panorama       // 全景照片（暂时当作普通照片处理）
-}
-
-// MARK: - Live Photo View
-
-/// Live Photo 视图包装器
-struct LivePhotoView: UIViewRepresentable {
-    let livePhoto: PHLivePhoto
-    @Binding var isPlaying: Bool
-    
-    func makeUIView(context: Context) -> PHLivePhotoView {
-        let view = PHLivePhotoView()
-        view.livePhoto = livePhoto
-        view.contentMode = .scaleAspectFit
-        
-        // 设置代理监听播放状态
-        view.delegate = context.coordinator
-        
-        return view
-    }
-    
-    func updateUIView(_ uiView: PHLivePhotoView, context: Context) {
-        uiView.livePhoto = livePhoto
-        
-        // 如果需要开始播放
-        if isPlaying && !context.coordinator.isCurrentlyPlaying {
-            uiView.startPlayback(with: .full)
-            context.coordinator.isCurrentlyPlaying = true
-        }
-    }
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator(isPlaying: $isPlaying)
-    }
-    
-    class Coordinator: NSObject, PHLivePhotoViewDelegate {
-        @Binding var isPlaying: Bool
-        var isCurrentlyPlaying: Bool = false
-        
-        init(isPlaying: Binding<Bool>) {
-            self._isPlaying = isPlaying
-        }
-        
-        func livePhotoView(_ livePhotoView: PHLivePhotoView, didEndPlaybackWith playbackStyle: PHLivePhotoViewPlaybackStyle) {
-            isPlaying = false
-            isCurrentlyPlaying = false
-        }
-    }
-}
-
-// MARK: - Video Player View
-
-/// 视频播放器包装器
-struct VideoPlayerControlView: View {
-    let player: AVPlayer
-    @Binding var isPlaying: Bool
-    
-    var body: some View {
-        ZStack {
-            // 视频播放器
-            VideoPlayer(player: player)
-                .onAppear {
-                    // 监听播放结束
-                    NotificationCenter.default.addObserver(
-                        forName: .AVPlayerItemDidPlayToEndTime,
-                        object: player.currentItem,
-                        queue: .main
-                    ) { _ in
-                        isPlaying = false
-                        player.seek(to: .zero)
-                    }
-                }
-            
-            // 播放/暂停控制
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    
-                    Button(action: {
-                        if isPlaying {
-                            player.pause()
-                            isPlaying = false
-                        } else {
-                            player.play()
-                            isPlaying = true
-                        }
-                    }) {
-                        Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.system(size: 60))
-                            .foregroundColor(.white)
-                            .shadow(color: .black.opacity(0.3), radius: 5)
-                    }
-                    
-                    Spacer()
-                }
-                Spacer()
-            }
-            .opacity(isPlaying ? 0.0 : 1.0)
-            .animation(.easeInOut(duration: 0.3), value: isPlaying)
-        }
-    }
-}
-
-// 按钮缩放样式
-struct ScaleButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
-    }
-}
-
-// MARK: - View Extensions
-
-/// 应用媒体变换效果（缩放、平移、旋转等）
-extension View {
-    func applyMediaTransforms(
-        isZoomed: Bool,
-        currentScale: CGFloat,
-        finalScale: CGFloat,
-        panOffset: CGSize,
-        finalPanOffset: CGSize,
-        dragOffset: CGSize,
-        isDragging: Bool,
-        isDeleting: Bool,
-        deleteDirection: CGFloat,
-        cardRotationFactor: Double
-    ) -> some View {
-        self
-            // 缩放效果
-            .scaleEffect(
-                isZoomed 
-                    ? currentScale * finalScale
-                    : 1.0 + (abs(dragOffset.width) / 1000)
-            )
-            // 平移偏移
-            .offset(
-                x: isZoomed 
-                    ? panOffset.width + finalPanOffset.width
-                    : (isDeleting ? deleteDirection * UIScreen.main.bounds.width * 1.5 : dragOffset.width),
-                y: isZoomed 
-                    ? panOffset.height + finalPanOffset.height
-                    : (isDeleting ? -50 : dragOffset.height * 0.2)
-            )
-            // 旋转效果
-            .rotationEffect(.degrees(isDragging && !isZoomed ? Double(dragOffset.width) * cardRotationFactor : 0))
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isZoomed)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: finalScale)
-            .animation(
-                isDeleting ? .spring(response: 0.5, dampingFraction: 0.8) : .spring(response: 0.3, dampingFraction: 0.7),
-                value: isDeleting
-            )
-            .opacity(isDeleting ? 0 : 1 - Double(abs(dragOffset.width)) / 500)
-    }
-    
-    func applyMediaGestures(
-        isZoomed: Binding<Bool>,
-        currentScale: Binding<CGFloat>,
-        finalScale: Binding<CGFloat>,
-        panOffset: Binding<CGSize>,
-        finalPanOffset: Binding<CGSize>,
-        dragOffset: Binding<CGSize>,
-        isDragging: Binding<Bool>,
-        onMagnificationEnd: @escaping (CGFloat) -> Void,
-        onPanEnd: @escaping (CGSize) -> Void,
-        onDragEnd: @escaping (CGSize) -> Void,
-        onDoubleTap: @escaping () -> Void
-    ) -> some View {
-        self
-            // 双击放大手势
-            .onTapGesture(count: 2) {
-                onDoubleTap()
-            }
-            // 捏合缩放手势
-            .gesture(
-                MagnificationGesture()
-                    .onChanged { value in
-                        currentScale.wrappedValue = value
-                    }
-                    .onEnded { value in
-                        onMagnificationEnd(value)
-                    }
-            )
-            // 拖拽手势
-            .simultaneousGesture(
-                DragGesture()
-                    .onChanged { value in
-                        if isZoomed.wrappedValue {
-                            // 放大状态：平移查看
-                            panOffset.wrappedValue = value.translation
-                        } else {
-                            // 正常状态：导航
-                            isDragging.wrappedValue = true
-                            dragOffset.wrappedValue = value.translation
-                        }
-                    }
-                    .onEnded { value in
-                        if isZoomed.wrappedValue {
-                            onPanEnd(value.translation)
-                        } else {
-                            onDragEnd(value.translation)
-                        }
-                    }
-            )
-    }
-}
+// 注意：支持视图已提取到独立文件：
+// - LivePhotoView.swift
+// - VideoPlayerControlView.swift
+// - MediaGestureModifiers.swift
+// - MediaTypes.swift
+// - SupportingViews.swift
 
 // MARK: - Preview
 

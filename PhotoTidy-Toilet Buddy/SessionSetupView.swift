@@ -20,6 +20,14 @@ struct SessionSetupView: View {
     @State private var showingError = false
     @State private var showingSettings = false
     
+    // 激励广告相关状态
+    @State private var isAdFree = false
+    @State private var remainingAdFreeTime: String?
+    @State private var isLoadingRewardedAd = false
+    @State private var showingRewardedAdResult = false
+    @State private var rewardedAdResultMessage = ""
+    @State private var adCheckTimer: Timer?
+    
     // MARK: - UserDefaults Keys
     
     private let photoCountKey = "sessionSetup.photoCount"
@@ -34,6 +42,9 @@ struct SessionSetupView: View {
                     // 标题区域
                     headerSection
                     
+                    // 激励广告卡片
+                    rewardedAdSection
+                    
                     // 统计卡片（如果有完成的会话）
                     if viewModel.isSessionCompleted {
                         sessionCompletedCard
@@ -42,6 +53,9 @@ struct SessionSetupView: View {
                     // 数量选择区域 (F-02)
                     photoCountSection
                     
+                    // 启动按钮
+                    startButton
+                    
                     // 快速过滤选项
                     quickFiltersSection
                     
@@ -49,9 +63,6 @@ struct SessionSetupView: View {
                     advancedFilterButton
                     
                     Spacer(minLength: 20)
-                    
-                    // 启动按钮
-                    startButton
                 }
                 .padding()
             }
@@ -86,9 +97,17 @@ struct SessionSetupView: View {
             }
             .onAppear {
                 loadUserPreferences()
+                updateAdFreeStatus()
+                startAdStatusCheck()
+            }
+            .onDisappear {
+                stopAdStatusCheck()
             }
             .onChange(of: viewModel.errorMessage) { newValue in
                 showingError = newValue != nil
+            }
+            .alert(rewardedAdResultMessage, isPresented: $showingRewardedAdResult) {
+                Button(L10n.Button.confirm, role: .cancel) { }
             }
         }
     }
@@ -123,6 +142,142 @@ struct SessionSetupView: View {
                 .padding(.horizontal)
         }
         .padding(.top, 20)
+    }
+    
+    // MARK: - Rewarded Ad Section
+    
+    private var rewardedAdSection: some View {
+        Group {
+            if isAdFree {
+                // 显示无广告状态
+                adFreeStatusCard
+            } else {
+                // 显示观看广告按钮
+                watchAdCard
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+    
+    private var adFreeStatusCard: some View {
+        HStack(spacing: 15) {
+            // 图标
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.green, .green.opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 50, height: 50)
+                
+                Image(systemName: "checkmark.shield.fill")
+                    .foregroundColor(.white)
+                    .font(.title3)
+            }
+            
+            // 文字内容
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.RewardedAd.statusActive)
+                    .font(.headline)
+                    .foregroundColor(.green)
+                
+                if let timeString = remainingAdFreeTime {
+                    Text(L10n.RewardedAd.statusRemainingTime(timeString))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Spacer()
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 15)
+                .fill(Color.green.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 15)
+                        .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                )
+        )
+    }
+    
+    private var watchAdCard: some View {
+        let adReady = AdManager.shared.isRewardedAdReady()
+        
+        return HStack(spacing: 15) {
+            // 图标
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: adReady ? [.yellow, .orange] : [.gray, .gray.opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 50, height: 50)
+                
+                Image(systemName: "gift.fill")
+                    .foregroundColor(.white)
+                    .font(.title3)
+            }
+            
+            // 文字内容
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.RewardedAd.title)
+                    .font(.headline)
+                    .foregroundColor(adReady ? .primary : .secondary)
+                
+                Text(adReady ? L10n.RewardedAd.description : L10n.RewardedAd.loading)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            // 观看按钮
+            Button(action: {
+                handleWatchRewardedAd()
+            }) {
+                Group {
+                    if isLoadingRewardedAd {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(0.8)
+                    } else {
+                        Text(L10n.RewardedAd.buttonWatch)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                }
+                .frame(minWidth: 70)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    LinearGradient(
+                        colors: adReady ? [.yellow, .orange] : [.gray, .gray.opacity(0.7)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .foregroundColor(.white)
+                .cornerRadius(10)
+                .opacity(adReady ? 1.0 : 0.6)
+            }
+            .disabled(isLoadingRewardedAd || !adReady)
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 15)
+                .fill(adReady ? Color.yellow.opacity(0.1) : Color.gray.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 15)
+                        .stroke(adReady ? Color.yellow.opacity(0.3) : Color.gray.opacity(0.2), lineWidth: 1)
+                )
+        )
     }
     
     // MARK: - Session Completed Card
@@ -357,6 +512,72 @@ struct SessionSetupView: View {
                 count: Int(photoCount),
                 filterConfig: filterConfig
             )
+        }
+    }
+    
+    // MARK: - Rewarded Ad Actions
+    
+    /// 更新无广告状态
+    private func updateAdFreeStatus() {
+        isAdFree = AdFreeManager.shared.isAdFree()
+        remainingAdFreeTime = AdFreeManager.shared.getFormattedRemainingTime()
+        
+        print("无广告状态更新: isAdFree=\(isAdFree), remaining=\(remainingAdFreeTime ?? "nil")")
+    }
+    
+    /// 开始定期检查广告状态（用于UI更新）
+    private func startAdStatusCheck() {
+        // 每10秒检查一次广告和无广告状态
+        adCheckTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { _ in
+            updateAdFreeStatus()
+        }
+    }
+    
+    /// 停止广告状态检查
+    private func stopAdStatusCheck() {
+        adCheckTimer?.invalidate()
+        adCheckTimer = nil
+    }
+    
+    /// 处理观看激励广告
+    private func handleWatchRewardedAd() {
+        // 检查广告是否准备好
+        if !AdManager.shared.isRewardedAdReady() {
+            // 静默处理：不显示错误提示，只在控制台记录
+            print("⚠️ 激励广告未准备好，静默跳过")
+            // 尝试重新加载广告
+            AdManager.shared.loadRewardedAd()
+            return
+        }
+        
+        print("用户点击观看激励广告")
+        isLoadingRewardedAd = true
+        
+        // 展示激励广告
+        AdManager.shared.showRewardedAd { [self] rewardGranted in
+            // 广告关闭后的回调
+            DispatchQueue.main.async {
+                self.isLoadingRewardedAd = false
+                
+                if rewardGranted {
+                    // 用户看完广告，激活无广告模式
+                    print("✓ 用户获得奖励，激活24小时无广告")
+                    AdFreeManager.shared.activateAdFree()
+                    
+                    // 更新UI状态
+                    self.updateAdFreeStatus()
+                    
+                    // 显示成功提示
+                    self.rewardedAdResultMessage = L10n.RewardedAd.rewardReceived
+                    self.showingRewardedAdResult = true
+                } else {
+                    // 用户中途退出，未获得奖励
+                    print("✗ 用户未完成广告，未获得奖励")
+                    // 静默处理：不显示"需要看完广告"的提示
+                    // 用户主动关闭广告，不需要额外提醒
+                    print("用户选择不观看广告，静默返回")
+                }
+            }
         }
     }
     

@@ -224,3 +224,16 @@
 "validation.suggestion.selfie_accuracy" = "💡 Selfie detection uses heuristic rules, ~70% accuracy";
 "validation.suggestion.burst_date_range" = "💡 Recent burst photos may be limited, consider expanding date range";
 
+/* Rewarded Ad */
+"rewarded_ad.title" = "Ad-Free Experience";
+"rewarded_ad.description" = "Watch an ad to enjoy 24 hours ad-free";
+"rewarded_ad.button_watch" = "Watch Ad";
+"rewarded_ad.status_active" = "Ad-Free Mode";
+"rewarded_ad.status_remaining" = "Remaining";
+"rewarded_ad.status_remaining_time" = "Remaining %@";
+"rewarded_ad.reward_received" = "🎉 Activated! Enjoy 24 hours ad-free";
+"rewarded_ad.reward_failed" = "You must complete the ad to earn the reward";
+"rewarded_ad.ad_load_failed" = "Ad not available, please try again later";
+"rewarded_ad.ad_not_ready" = "Ad is loading...";
+"rewarded_ad.loading" = "Loading ad...";
+

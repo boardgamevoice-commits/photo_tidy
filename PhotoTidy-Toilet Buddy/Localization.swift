@@ -242,6 +242,24 @@ struct L10n {
         static let statsCleared = "toast.stats_cleared".localized
     }
     
+    // MARK: - Rewarded Ad
+    
+    struct RewardedAd {
+        static let title = "rewarded_ad.title".localized
+        static let description = "rewarded_ad.description".localized
+        static let buttonWatch = "rewarded_ad.button_watch".localized
+        static let statusActive = "rewarded_ad.status_active".localized
+        static let statusRemaining = "rewarded_ad.status_remaining".localized
+        static func statusRemainingTime(_ time: String) -> String {
+            "rewarded_ad.status_remaining_time".localized(time)
+        }
+        static let rewardReceived = "rewarded_ad.reward_received".localized
+        static let rewardFailed = "rewarded_ad.reward_failed".localized
+        static let adLoadFailed = "rewarded_ad.ad_load_failed".localized
+        static let adNotReady = "rewarded_ad.ad_not_ready".localized
+        static let loading = "rewarded_ad.loading".localized
+    }
+    
     // MARK: - Validation
     
     struct Validation {

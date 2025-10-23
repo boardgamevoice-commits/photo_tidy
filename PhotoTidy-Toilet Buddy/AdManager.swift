@@ -16,11 +16,14 @@ class AdManager: NSObject {
     
     // MARK: - Properties
     
-    // Placeholder Interstitial Ad Unit ID (Test ID from Google)
-    // TODO: Replace with your real Ad Unit ID before release
-    private let interstitialAdUnitID = "ca-app-pub-3940256099942544/4411468910"
+    // Real Interstitial Ad Unit ID (Production)
+    private let interstitialAdUnitID = "ca-app-pub-2034595640300550/4965494634"
+    
+    // Real Rewarded Ad Unit ID (Production)
+    private let rewardedAdUnitID = "ca-app-pub-2034595640300550/4366728831"
     
     private var interstitialAd: GADInterstitialAd?
+    private var rewardedAd: GADRewardedAd?
     
     // MARK: - Initialization
     
@@ -40,9 +43,10 @@ class AdManager: NSObject {
                 print("AdMob 适配器: \(adapter.key) - 状态: \(adapter.value.state.rawValue)")
             }
             
-            // 初始化完成后预加载第一个广告
+            // 初始化完成后预加载广告
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 self.loadInterstitialAd()
+                self.loadRewardedAd()
             }
         }
     }
@@ -91,9 +95,71 @@ class AdManager: NSObject {
         }
     }
     
+    // MARK: - Rewarded Ad Methods
+    
+    /// Load a rewarded ad
+    /// Call this method to preload a rewarded ad before showing it
+    func loadRewardedAd() {
+        print("开始加载激励广告...")
+        let request = GADRequest()
+        
+        GADRewardedAd.load(withAdUnitID: rewardedAdUnitID, request: request) { [weak self] ad, error in
+            if let error = error {
+                print("激励广告加载失败: \(error.localizedDescription)")
+                self?.rewardedAd = nil
+                return
+            }
+            
+            print("激励广告加载成功 ✓")
+            self?.rewardedAd = ad
+            self?.rewardedAd?.fullScreenContentDelegate = self
+        }
+    }
+    
+    /// Show the rewarded ad if available
+    /// - Parameters:
+    ///   - completion: Callback executed after the ad is dismissed
+    ///   - rewardGranted: Callback with true if user earned the reward, false otherwise
+    func showRewardedAd(completion: @escaping (_ rewardGranted: Bool) -> Void) {
+        // 获取当前活跃的 window scene
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootViewController = windowScene.windows.first?.rootViewController else {
+            print("无法获取 root view controller")
+            completion(false)
+            return
+        }
+        
+        if let rewardedAd = rewardedAd {
+            print("准备展示激励广告...")
+            // 保存奖励回调
+            self.rewardedAdCompletion = completion
+            
+            // 展示广告
+            rewardedAd.present(fromRootViewController: rootViewController) {
+                // 用户观看完广告，获得奖励
+                let reward = rewardedAd.adReward
+                print("🎁 用户获得奖励: \(reward.amount) \(reward.type)")
+                self.userEarnedReward = true
+            }
+        } else {
+            print("激励广告未准备好，无法展示")
+            completion(false)
+            // 尝试重新加载广告以备下次使用
+            loadRewardedAd()
+        }
+    }
+    
+    /// Check if rewarded ad is ready to show
+    /// - Returns: true if ad is loaded and ready
+    func isRewardedAdReady() -> Bool {
+        return rewardedAd != nil
+    }
+    
     // MARK: - Private Properties
     
     private var adDismissalCompletion: (() -> Void)?
+    private var rewardedAdCompletion: ((Bool) -> Void)?
+    private var userEarnedReward: Bool = false
 }
 
 // MARK: - GADFullScreenContentDelegate
@@ -101,47 +167,95 @@ class AdManager: NSObject {
 extension AdManager: GADFullScreenContentDelegate {
     
     func adDidDismissFullScreenContent(_ ad: GADFullScreenPresentingAd) {
-        print("插页式广告已关闭")
-        interstitialAd = nil
-        
-        // 调用完成回调
-        if let completion = adDismissalCompletion {
-            print("执行广告关闭回调")
-            completion()
-            adDismissalCompletion = nil
+        // 判断是插页式广告还是激励广告
+        if ad is GADInterstitialAd {
+            print("插页式广告已关闭")
+            interstitialAd = nil
+            
+            // 调用完成回调
+            if let completion = adDismissalCompletion {
+                print("执行广告关闭回调")
+                completion()
+                adDismissalCompletion = nil
+            }
+            
+            // 预加载下一个广告
+            print("预加载下一个插页式广告...")
+            loadInterstitialAd()
+        } else if ad is GADRewardedAd {
+            print("激励广告已关闭")
+            
+            // 调用奖励回调
+            if let completion = rewardedAdCompletion {
+                print("执行激励广告回调，是否获得奖励: \(userEarnedReward)")
+                completion(userEarnedReward)
+                rewardedAdCompletion = nil
+                userEarnedReward = false
+            }
+            
+            rewardedAd = nil
+            
+            // 预加载下一个激励广告
+            print("预加载下一个激励广告...")
+            loadRewardedAd()
         }
-        
-        // 预加载下一个广告
-        print("预加载下一个广告...")
-        loadInterstitialAd()
     }
     
     func ad(_ ad: GADFullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
-        print("插页式广告展示失败: \(error.localizedDescription)")
-        interstitialAd = nil
-        
-        // 即使失败也调用完成回调
-        if let completion = adDismissalCompletion {
-            print("广告展示失败，执行回调")
-            completion()
-            adDismissalCompletion = nil
+        if ad is GADInterstitialAd {
+            print("插页式广告展示失败: \(error.localizedDescription)")
+            interstitialAd = nil
+            
+            // 即使失败也调用完成回调
+            if let completion = adDismissalCompletion {
+                print("广告展示失败，执行回调")
+                completion()
+                adDismissalCompletion = nil
+            }
+            
+            // 尝试重新加载
+            print("尝试重新加载插页式广告...")
+            loadInterstitialAd()
+        } else if ad is GADRewardedAd {
+            print("激励广告展示失败: \(error.localizedDescription)")
+            rewardedAd = nil
+            
+            // 即使失败也调用回调
+            if let completion = rewardedAdCompletion {
+                print("激励广告展示失败，执行回调")
+                completion(false)
+                rewardedAdCompletion = nil
+                userEarnedReward = false
+            }
+            
+            // 尝试重新加载
+            print("尝试重新加载激励广告...")
+            loadRewardedAd()
         }
-        
-        // 尝试重新加载
-        print("尝试重新加载广告...")
-        loadInterstitialAd()
     }
     
     func adWillPresentFullScreenContent(_ ad: GADFullScreenPresentingAd) {
-        print("插页式广告即将展示")
+        if ad is GADInterstitialAd {
+            print("插页式广告即将展示")
+        } else if ad is GADRewardedAd {
+            print("激励广告即将展示")
+        }
     }
     
     func adDidRecordImpression(_ ad: GADFullScreenPresentingAd) {
-        print("插页式广告已记录展示")
+        if ad is GADInterstitialAd {
+            print("插页式广告已记录展示")
+        } else if ad is GADRewardedAd {
+            print("激励广告已记录展示")
+        }
     }
     
     func adDidRecordClick(_ ad: GADFullScreenPresentingAd) {
-        print("插页式广告已记录点击")
+        if ad is GADInterstitialAd {
+            print("插页式广告已记录点击")
+        } else if ad is GADRewardedAd {
+            print("激励广告已记录点击")
+        }
     }
 }
 
