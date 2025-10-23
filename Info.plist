@@ -23,7 +23,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Photo Tidy - 马桶伴侣需要访问您的相册，以便随机选取照片供您审阅和删除。所有操作均在本地进行。</string>
+	<string>Photo Tidy needs access to your photo library to help organize photos. All operations are performed locally, and we do not upload or share your photos.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
