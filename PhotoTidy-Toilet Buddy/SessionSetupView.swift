@@ -30,6 +30,9 @@ struct SessionSetupView: View {
     @State private var rewardedAdResultMessage = ""
     @State private var adCheckTimer: Timer?
     
+    // 预加载防抖任务
+    @State private var preloadDebounceTask: Task<Void, Error>?
+    
     // MARK: - UserDefaults Keys
     
     private let photoCountKey = "sessionSetup.photoCount"
@@ -69,6 +72,7 @@ struct SessionSetupView: View {
         }
         .onChange(of: filterConfig) { _ in
             saveUserPreferences()
+            restartPreloading() // 新增：配置变化时重新预加载
         }
         .alert(L10n.Alert.hint, isPresented: $showingError) {
             Button(L10n.Button.confirm, role: .cancel) {
@@ -81,9 +85,11 @@ struct SessionSetupView: View {
             loadUserPreferences()
             updateAdFreeStatus()
             startAdStatusCheck()
+            startPreloading() // 新增：开始预加载
         }
         .onDisappear {
             stopAdStatusCheck()
+            stopPreloading() // 新增：停止预加载
         }
         .onChange(of: viewModel.errorMessage) { newValue in
             showingError = newValue != nil
@@ -423,6 +429,7 @@ struct SessionSetupView: View {
                     .accentColor(.blue)
                     .onChange(of: photoCount) { newValue in
                         saveUserPreferences()
+                        restartPreloading() // 新增：数量变化时重新预加载
                     }
                 
                 HStack {
@@ -544,7 +551,7 @@ struct SessionSetupView: View {
                     Image(systemName: "play.fill")
                         .font(isIPad ? .title2 : .title3)
                 }
-                Text(viewModel.isLoading ? L10n.Loading.general : (viewModel.isSessionCompleted ? L10n.Button.startNewSession : L10n.Button.start))
+                Text(getStartButtonText())
                     .font(.system(size: isIPad ? 20 : 18, weight: .semibold))
             }
             .foregroundColor(.white)
@@ -566,12 +573,29 @@ struct SessionSetupView: View {
     
     // MARK: - Actions
     
+    /// 获取启动按钮文本
+    private func getStartButtonText() -> String {
+        if viewModel.isLoading {
+            return L10n.Loading.general
+        } else if viewModel.isSessionCompleted {
+            return L10n.Button.startNewSession
+        } else {
+            return "开始审阅"
+        }
+    }
+    
     private func startSession() {
         Task {
-            await viewModel.startNewSession(
-                count: Int(photoCount),
-                filterConfig: filterConfig
-            )
+            if viewModel.hasPreloadedPhotos {
+                // 使用预加载的照片启动会话
+                await viewModel.startNewSessionWithPreloadedPhotos()
+            } else {
+                // 回退到原有逻辑
+                await viewModel.startNewSession(
+                    count: Int(photoCount),
+                    filterConfig: filterConfig
+                )
+            }
         }
     }
     
@@ -582,7 +606,7 @@ struct SessionSetupView: View {
         isAdFree = AdFreeManager.shared.isAdFree()
         remainingAdFreeTime = AdFreeManager.shared.getFormattedRemainingTime()
         
-        print("无广告状态更新: isAdFree=\(isAdFree), remaining=\(remainingAdFreeTime ?? "nil")")
+        AppLogger.shared.debug("无广告状态更新: isAdFree=\(isAdFree), remaining=\(remainingAdFreeTime ?? "nil")", category: .ui)
     }
     
     /// 开始定期检查广告状态（用于UI更新）
@@ -604,13 +628,13 @@ struct SessionSetupView: View {
         // 检查广告是否准备好
         if !AdManager.shared.isRewardedAdReady() {
             // 静默处理：不显示错误提示，只在控制台记录
-            print("⚠️ 激励广告未准备好，静默跳过")
+            AppLogger.shared.warning("激励广告未准备好，静默跳过", category: .ui)
             // 尝试重新加载广告
             AdManager.shared.loadRewardedAd()
             return
         }
         
-        print("用户点击观看激励广告")
+        AppLogger.shared.info("用户点击观看激励广告", category: .ui)
         isLoadingRewardedAd = true
         
         // 展示激励广告
@@ -621,7 +645,7 @@ struct SessionSetupView: View {
                 
                 if rewardGranted {
                     // 用户看完广告，激活无广告模式
-                    print("✓ 用户获得奖励，激活24小时无广告")
+                    AppLogger.shared.info("用户获得奖励，激活24小时无广告", category: .ui)
                     AdFreeManager.shared.activateAdFree()
                     
                     // 更新UI状态
@@ -632,10 +656,10 @@ struct SessionSetupView: View {
                     self.showingRewardedAdResult = true
                 } else {
                     // 用户中途退出，未获得奖励
-                    print("✗ 用户未完成广告，未获得奖励")
+                    AppLogger.shared.info("用户未完成广告，未获得奖励", category: .ui)
                     // 静默处理：不显示"需要看完广告"的提示
                     // 用户主动关闭广告，不需要额外提醒
-                    print("用户选择不观看广告，静默返回")
+                    AppLogger.shared.info("用户选择不观看广告，静默返回", category: .ui)
                 }
             }
         }
@@ -651,14 +675,14 @@ struct SessionSetupView: View {
         if defaults.object(forKey: photoCountKey) != nil {
             let savedCount = defaults.double(forKey: photoCountKey)
             photoCount = min(max(savedCount, 10), 100)
-            print("已加载上次照片数量：\(Int(photoCount))")
+            AppLogger.shared.debug("已加载上次照片数量：\(Int(photoCount))", category: .ui)
         }
         
         // 加载上一次的过滤配置
         if let data = defaults.data(forKey: filterConfigKey),
            let decoded = try? JSONDecoder().decode(FilterConfiguration.self, from: data) {
             filterConfig = decoded
-            print("已加载上次过滤配置：\(filterConfig.summary)")
+            AppLogger.shared.debug("已加载上次过滤配置：\(filterConfig.summary)", category: .ui)
         }
     }
     
@@ -674,7 +698,39 @@ struct SessionSetupView: View {
             defaults.set(encoded, forKey: filterConfigKey)
         }
         
-        print("已保存用户偏好设置：photoCount=\(Int(photoCount)), filterConfig=\(filterConfig.summary)")
+        AppLogger.shared.debug("已保存用户偏好设置：photoCount=\(Int(photoCount)), filterConfig=\(filterConfig.summary)", category: .ui)
+    }
+    
+    // MARK: - Preload Methods (预加载方法)
+    
+    /// 开始预加载
+    private func startPreloading() {
+        // 使用防抖处理，避免频繁重新加载
+        restartPreloading()
+    }
+    
+    /// 重新开始预加载（带防抖）
+    private func restartPreloading() {
+        // 取消之前的防抖任务
+        preloadDebounceTask?.cancel()
+        
+        // 创建新的防抖任务
+        preloadDebounceTask = Task {
+            try await Task.sleep(nanoseconds: 500_000_000) // 0.5秒防抖
+            if !Task.isCancelled {
+                viewModel.startPreloading(
+                    count: Int(photoCount),
+                    filterConfig: filterConfig
+                )
+            }
+        }
+    }
+    
+    /// 停止预加载
+    private func stopPreloading() {
+        preloadDebounceTask?.cancel()
+        preloadDebounceTask = nil
+        viewModel.cancelPreloading()
     }
 }
 
