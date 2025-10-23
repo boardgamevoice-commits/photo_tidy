@@ -20,6 +20,9 @@
 "button.delete" = "删除";
 "button.keep" = "保留";
 "button.undo" = "撤销";
+"button.restore" = "恢复";
+"button.previous" = "上一张";
+"button.next" = "下一张";
 "button.reset" = "重置";
 "button.go_to_settings" = "前往设置";
 "button.continue_trying" = "继续尝试";
@@ -124,6 +127,8 @@
 "review.double_tap_to_exit" = "双击退出";
 "review.zoom_level" = "%.1fx";
 "review.unknown_date" = "未知日期";
+"review.marked_for_deletion" = "已标记删除";
+"review.marked_for_deletion_hint" = "点击恢复按钮可撤销";
 
 /* 会话完成 */
 "session.complete.title" = "会话完成！";

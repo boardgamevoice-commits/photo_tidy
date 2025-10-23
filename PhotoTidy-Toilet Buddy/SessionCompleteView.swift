@@ -467,11 +467,9 @@ struct DetailRow: View {
 // MARK: - Preview
 
 #Preview {
-    SessionCompleteView(viewModel: {
-        let vm = TidySessionViewModel()
-        vm.deletedCount = 15
-        vm.keptCount = 35
-        return vm
-    }())
+    let vm = TidySessionViewModel()
+    // 注意：在 Preview 中，deletedCount 和 keptCount 基于 photosToReview 的状态计算
+    // 如果需要测试特定数值，需要在实际设备上运行
+    return SessionCompleteView(viewModel: vm)
 }
 

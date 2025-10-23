@@ -148,15 +148,46 @@ struct CardReviewView: View {
     
     private var topStatusBar: some View {
         VStack(spacing: 12) {
-            // 进度条和关闭按钮
+            // 进度条和智能按钮（关闭/完成）
             HStack {
+                // 智能按钮：最后一张显示"完成"，否则显示"关闭"
                 Button(action: {
                     viewModel.endSession()
                     dismiss()
                 }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title2)
-                        .foregroundColor(.white.opacity(0.8))
+                    if isLastPhoto {
+                        // 完成按钮（绿色，大号）
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.title)
+                            Text(L10n.Button.done)
+                                .font(.headline)
+                                .fontWeight(.bold)
+                        }
+                        .foregroundColor(.green)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.green.opacity(0.2))
+                        )
+                    } else {
+                        // 关闭按钮（灰色，带文字）
+                        HStack(spacing: 8) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title2)
+                            Text(L10n.Button.cancel)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                        }
+                        .foregroundColor(.white.opacity(0.9))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.white.opacity(0.15))
+                        )
+                    }
                 }
                 
                 Spacer()
@@ -258,39 +289,16 @@ struct CardReviewView: View {
                 
                 Spacer()
                 
-                // 统计信息
-                HStack(spacing: 15) {
-                    StatBadgeCompact(icon: "trash.fill", count: viewModel.deletedCount, color: .red)
-                    StatBadgeCompact(icon: "hand.thumbsup.fill", count: viewModel.keptCount, color: .green)
+                // 统计信息 - 只显示已标记删除的数量
+                HStack(spacing: 8) {
+                    Image(systemName: "trash.fill")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                    Text("\(viewModel.deletedCount)")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.red)
                 }
-                
-                // 撤销按钮 (A-03) - 显示可撤销次数
-                Button(action: {
-                    withAnimation(.spring(response: 0.3)) {
-                        viewModel.undoLastDeletion()
-                    }
-                }) {
-                        HStack(spacing: 6) {
-                                Image(systemName: "arrow.uturn.backward.circle.fill")
-                                    .font(.title3)
-                                Text(L10n.Button.undo)
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                if viewModel.undoCount > 0 {
-                                    Text("(\(viewModel.undoCount))")
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                }
-                            }
-                            .foregroundColor(viewModel.canUndo ? .orange : .gray)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 20)
-                                    .fill(Color.white.opacity(viewModel.canUndo ? 0.15 : 0.05))
-                            )
-                }
-                .disabled(!viewModel.canUndo)
             }
             .padding(.horizontal, 20)
         }
@@ -303,6 +311,11 @@ struct CardReviewView: View {
             ZStack {
                 // 根据媒体类型渲染不同的内容
                 mediaContentView(geometry: geometry)
+                
+                // 已删除照片的视觉反馈
+                if isCurrentPhotoMarked && !isLoadingImage {
+                    deletedPhotoOverlay
+                }
                 
                 // 拖拽方向提示
                 if isDragging && !isZoomed {
@@ -616,33 +629,67 @@ struct CardReviewView: View {
         }
     }
     
-    // MARK: - Bottom Action Buttons (F-06)
+    // MARK: - Bottom Action Buttons (导航 + 删除/恢复)
     
     private var bottomActionButtons: some View {
-        HStack(spacing: 30) {
-            // 删除按钮（左侧）
+        HStack(spacing: 40) {
+            // 上一张按钮（左侧）
             Button(action: {
-                handleDeleteAction()
+                withAnimation(.spring(response: 0.3)) {
+                    viewModel.moveToPreviousPhoto()
+                }
             }) {
                 VStack(spacing: 8) {
                     ZStack {
                         Circle()
                             .fill(
                                 LinearGradient(
-                                    colors: [.red, .red.opacity(0.8)],
+                                    colors: [.blue, .blue.opacity(0.8)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 70, height: 70)
-                            .shadow(color: .red.opacity(0.4), radius: 10, x: 0, y: 5)
+                            .frame(width: 65, height: 65)
+                            .shadow(color: .blue.opacity(0.4), radius: 10, x: 0, y: 5)
                         
-                        Image(systemName: "trash.fill")
-                            .font(.system(size: 28))
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 28, weight: .semibold))
                             .foregroundColor(.white)
                     }
                     
-                    Text(L10n.Button.delete)
+                    Text(L10n.Button.previous)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                }
+            }
+            .buttonStyle(ScaleButtonStyle())
+            .disabled(!viewModel.canMovePrevious)
+            .opacity(viewModel.canMovePrevious ? 1.0 : 0.4)
+            
+            // 删除/恢复按钮（中间）
+            Button(action: {
+                handleToggleDeletion()
+            }) {
+                VStack(spacing: 8) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: isCurrentPhotoMarked ? [.orange, .orange.opacity(0.8)] : [.red, .red.opacity(0.8)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 75, height: 75)
+                            .shadow(color: (isCurrentPhotoMarked ? Color.orange : Color.red).opacity(0.4), radius: 10, x: 0, y: 5)
+                        
+                        Image(systemName: isCurrentPhotoMarked ? "arrow.uturn.backward" : "trash.fill")
+                            .font(.system(size: 30))
+                            .foregroundColor(.white)
+                    }
+                    
+                    Text(isCurrentPhotoMarked ? L10n.Button.restore : L10n.Button.delete)
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
@@ -650,39 +697,98 @@ struct CardReviewView: View {
             }
             .buttonStyle(ScaleButtonStyle())
             
-            Spacer()
-            
-            // 保留按钮（右侧）
+            // 下一张按钮（右侧）
             Button(action: {
-                handleKeepAction()
+                withAnimation(.spring(response: 0.3)) {
+                    viewModel.moveToNextPhoto()
+                }
             }) {
                 VStack(spacing: 8) {
                     ZStack {
                         Circle()
                             .fill(
                                 LinearGradient(
-                                    colors: [.green, .green.opacity(0.8)],
+                                    colors: [.purple, .purple.opacity(0.8)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 70, height: 70)
-                            .shadow(color: .green.opacity(0.4), radius: 10, x: 0, y: 5)
+                            .frame(width: 65, height: 65)
+                            .shadow(color: .purple.opacity(0.4), radius: 10, x: 0, y: 5)
                         
-                        Image(systemName: "hand.thumbsup.fill")
-                            .font(.system(size: 28))
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 28, weight: .semibold))
                             .foregroundColor(.white)
                     }
                     
-                    Text(L10n.Button.keep)
+                    Text(L10n.Button.next)
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
                 }
             }
             .buttonStyle(ScaleButtonStyle())
+            .disabled(!viewModel.canMoveNext)
+            .opacity(viewModel.canMoveNext ? 1.0 : 0.4)
         }
-        .padding(.horizontal, 50)
+        .padding(.horizontal, 30)
+    }
+    
+    /// 当前照片是否已标记删除
+    private var isCurrentPhotoMarked: Bool {
+        return viewModel.currentPhoto?.isMarkedForDeletion ?? false
+    }
+    
+    /// 是否到达最后一张照片
+    private var isLastPhoto: Bool {
+        return viewModel.currentIndex == viewModel.totalPhotos - 1
+    }
+    
+    // MARK: - Deleted Photo Overlay
+    
+    /// 已删除照片的覆盖层视觉效果
+    private var deletedPhotoOverlay: some View {
+        ZStack {
+            // 半透明红色遮罩
+            Color.red.opacity(0.35)
+                .clipShape(RoundedRectangle(cornerRadius: 20))
+            
+            // 删除图标和文字
+            VStack(spacing: 20) {
+                // 大删除图标
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.3))
+                        .frame(width: 120, height: 120)
+                    
+                    Circle()
+                        .fill(Color.white.opacity(0.9))
+                        .frame(width: 100, height: 100)
+                    
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 50, weight: .bold))
+                        .foregroundColor(.red)
+                }
+                .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 5)
+                
+                // 状态文本
+                VStack(spacing: 8) {
+                    Text(L10n.Review.markedForDeletion)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    
+                    Text(L10n.Review.markedForDeletionHint)
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.9))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
+                .shadow(color: .black.opacity(0.5), radius: 5, x: 0, y: 2)
+            }
+        }
+        .transition(.opacity)
+        .allowsHitTesting(false)  // 不阻止手势交互
     }
     
     // MARK: - Actions
@@ -774,71 +880,64 @@ struct CardReviewView: View {
         finalPanOffset = .zero
     }
     
-    private func handleDeleteAction() {
-        guard !isDeleting else { return }
-        
+    /// 切换删除标记（删除或恢复）
+    private func handleToggleDeletion() {
         // 取消之前的动画任务
         animationTask?.cancel()
         
-        // 开始新的删除动画
-        animationTask = Task { @MainActor in
-            isDeleting = true
-            deleteDirection = -1 // 向左飞出
-            
-            // 红色闪烁
-            withAnimation(.easeOut(duration: 0.2)) {
-                showRedFlash = true
-            }
-            
-            // 震动反馈
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            
-            // 等待动画
-            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3s
-            
-            guard !Task.isCancelled else { return }
-            
-            viewModel.deleteCurrentPhoto()
-            
-            // 等待过渡
-            try? await Task.sleep(nanoseconds: 200_000_000) // 0.2s
-            
-            guard !Task.isCancelled else { return }
-            
-            withAnimation {
-                showRedFlash = false
-            }
-            resetAnimationStates()
-        }
-    }
-    
-    private func handleKeepAction() {
-        // 取消之前的动画任务
-        animationTask?.cancel()
+        let isMarked = viewModel.currentPhoto?.isMarkedForDeletion ?? false
         
-        // 开始新的保留动画
-        animationTask = Task { @MainActor in
-            // 绿色闪烁
-            withAnimation(.easeOut(duration: 0.2)) {
-                showGreenFlash = true
+        if isMarked {
+            // 当前已标记删除，点击恢复
+            animationTask = Task { @MainActor in
+                // 绿色闪烁（恢复反馈）
+                withAnimation(.easeOut(duration: 0.15)) {
+                    showGreenFlash = true
+                }
+                
+                // 震动反馈
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                
+                // 切换状态
+                viewModel.toggleDeletionMark()
+                
+                // 等待动画
+                try? await Task.sleep(nanoseconds: 150_000_000) // 0.15s
+                
+                guard !Task.isCancelled else { return }
+                
+                withAnimation {
+                    showGreenFlash = false
+                }
             }
-            
-            // 震动反馈
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-            
-            // 等待动画
-            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
-            
-            guard !Task.isCancelled else { return }
-            
-            viewModel.keepCurrentPhoto()
-            
-            try? await Task.sleep(nanoseconds: 200_000_000) // 0.2s
-            
-            guard !Task.isCancelled else { return }
-            
-            withAnimation {
-                showGreenFlash = false
+        } else {
+            // 当前未标记删除，点击删除
+            animationTask = Task { @MainActor in
+                // 红色闪烁（删除反馈）
+                withAnimation(.easeOut(duration: 0.2)) {
+                    showRedFlash = true
+                }
+                
+                // 震动反馈
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                
+                // 等待动画
+                try? await Task.sleep(nanoseconds: 200_000_000) // 0.2s
+                
+                guard !Task.isCancelled else { return }
+                
+                // 切换状态（会自动前进到下一张）
+                viewModel.toggleDeletionMark()
+                
+                // 等待过渡
+                try? await Task.sleep(nanoseconds: 200_000_000) // 0.2s
+                
+                guard !Task.isCancelled else { return }
+                
+                withAnimation {
+                    showRedFlash = false
+                }
+                resetAnimationStates()
             }
         }
     }

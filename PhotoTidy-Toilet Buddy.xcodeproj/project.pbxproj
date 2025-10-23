@@ -134,6 +134,14 @@
 			path = "PhotoTidy-Toilet Buddy";
 			sourceTree = "<group>";
 		};
+		A1000014000000000000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1000009000000000000001 /* PhotoTidy-Toilet Buddy.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		NEW00015000000000000001 /* Utils */ = {
 			isa = PBXGroup;
 			children = (
@@ -160,14 +168,6 @@
 				NEW00014000000000000001 /* SupportingViews.swift */,
 			);
 			path = Views;
-			sourceTree = "<group>";
-		};
-		A1000014000000000000001 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				A1000009000000000000001 /* PhotoTidy-Toilet Buddy.app */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -227,15 +227,15 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-	A1000018000000000000001 /* Resources */ = {
-		isa = PBXResourcesBuildPhase;
-		buildActionMask = 2147483647;
-		files = (
-			A1000007000000000000001 /* Assets.xcassets in Resources */,
-			L0A26B06D07CB4206AA3FBEC /* Localizable.strings in Resources */,
-		);
-		runOnlyForDeploymentPostprocessing = 0;
-	};
+		A1000018000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000007000000000000001 /* Assets.xcassets in Resources */,
+				L0A26B06D07CB4206AA3FBEC /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -269,13 +269,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-PhotoTidy-Toilet Buddy/Pods-PhotoTidy-Toilet Buddy-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-PhotoTidy-Toilet Buddy/Pods-PhotoTidy-Toilet Buddy-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

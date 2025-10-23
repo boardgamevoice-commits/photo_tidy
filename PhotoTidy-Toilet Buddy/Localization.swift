@@ -46,6 +46,9 @@ struct L10n {
         static let delete = "button.delete".localized
         static let keep = "button.keep".localized
         static let undo = "button.undo".localized
+        static let restore = "button.restore".localized
+        static let previous = "button.previous".localized
+        static let next = "button.next".localized
         static let reset = "button.reset".localized
         static let goToSettings = "button.go_to_settings".localized
         static let continueTrying = "button.continue_trying".localized
@@ -119,6 +122,8 @@ struct L10n {
         static let longPressToPlay = "review.long_press_to_play".localized
         static let doubleTapToExit = "review.double_tap_to_exit".localized
         static let unknownDate = "review.unknown_date".localized
+        static let markedForDeletion = "review.marked_for_deletion".localized
+        static let markedForDeletionHint = "review.marked_for_deletion_hint".localized
         
         static func progress(_ current: Int, _ total: Int) -> String {
             "review.progress".localized(current, total)

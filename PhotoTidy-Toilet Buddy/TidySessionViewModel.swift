@@ -16,14 +16,16 @@ import AVFoundation
 struct TidyPhoto: Identifiable, Equatable {
     let id: String
     let asset: PHAsset
+    var isMarkedForDeletion: Bool = false  // 是否标记为删除
     
     init(asset: PHAsset) {
         self.id = asset.localIdentifier
         self.asset = asset
+        self.isMarkedForDeletion = false
     }
     
     static func == (lhs: TidyPhoto, rhs: TidyPhoto) -> Bool {
-        return lhs.id == rhs.id
+        return lhs.id == rhs.id && lhs.isMarkedForDeletion == rhs.isMarkedForDeletion
     }
 }
 
@@ -38,18 +40,6 @@ class TidySessionViewModel: ObservableObject {
     
     /// 当前正在查看的照片索引
     @Published var currentIndex: Int = 0
-    
-    /// 已删除的照片数量
-    @Published var deletedCount: Int = 0
-    
-    /// 已保留的照片数量
-    @Published var keptCount: Int = 0
-    
-    /// 删除历史记录（用于多次撤销）
-    @Published private var deletionHistory: [(asset: PHAsset, index: Int)] = []
-    
-    /// 最大撤销步数
-    private let maxUndoSteps: Int = 10
     
     /// 会话是否正在进行中
     @Published var isSessionActive: Bool = false
@@ -84,6 +74,16 @@ class TidySessionViewModel: ObservableObject {
         return photosToReview[currentIndex]
     }
     
+    /// 已标记删除的照片数量（基于状态计算）
+    var deletedCount: Int {
+        return photosToReview.filter { $0.isMarkedForDeletion }.count
+    }
+    
+    /// 已保留的照片数量（基于状态计算）
+    var keptCount: Int {
+        return photosToReview.count - deletedCount
+    }
+    
     /// 总照片数量
     var totalPhotos: Int {
         return photosToReview.count
@@ -100,16 +100,6 @@ class TidySessionViewModel: ObservableObject {
         return Double(currentIndex) / Double(totalPhotos)
     }
     
-    /// 是否可以撤销删除
-    var canUndo: Bool {
-        return !deletionHistory.isEmpty
-    }
-    
-    /// 可撤销的次数
-    var undoCount: Int {
-        return deletionHistory.count
-    }
-    
     /// 是否可以向前导航
     var canMovePrevious: Bool {
         return currentIndex > 0
@@ -118,6 +108,11 @@ class TidySessionViewModel: ObservableObject {
     /// 是否可以向后导航
     var canMoveNext: Bool {
         return currentIndex < totalPhotos - 1
+    }
+    
+    /// 待删除照片列表（基于状态计算）
+    var pendingDeletions: [PHAsset] {
+        return photosToReview.filter { $0.isMarkedForDeletion }.map { $0.asset }
     }
     
     /// 待删除照片数量
@@ -139,9 +134,6 @@ class TidySessionViewModel: ObservableObject {
     
     private let photoService = PhotoService.shared
     private var cancellables = Set<AnyCancellable>()
-    
-    // 待删除队列（延迟删除策略）
-    private var pendingDeletions: [PHAsset] = []
     
     // MARK: - Initialization
     
@@ -267,65 +259,36 @@ class TidySessionViewModel: ObservableObject {
         print("会话开始成功，共 \(photosToReview.count) 张照片")
     }
     
-    /// 删除当前照片并移动到下一张
-    /// 注意：使用延迟删除策略，照片会在会话结束时批量删除
-    func deleteCurrentPhoto() {
-        guard let currentPhoto = currentPhoto else {
-            print("没有当前照片可删除")
+    /// 切换当前照片的删除标记
+    /// - 如果未标记删除，则标记并自动前进到下一张
+    /// - 如果已标记删除，则取消标记（停留在当前位置）
+    func toggleDeletionMark() {
+        guard currentIndex >= 0 && currentIndex < photosToReview.count else {
+            print("⚠️ toggleDeletionMark: 索引越界")
             return
         }
         
-        print("标记删除当前照片，索引: \(currentIndex) (延迟删除)")
+        let wasMarked = photosToReview[currentIndex].isMarkedForDeletion
         
-        // 记录删除历史用于撤销（支持多次撤销）
-        let historyItem = (asset: currentPhoto.asset, index: currentIndex)
-        deletionHistory.append(historyItem)
+        // 切换删除标记
+        photosToReview[currentIndex].isMarkedForDeletion.toggle()
         
-        // 限制历史记录大小
-        if deletionHistory.count > maxUndoSteps {
-            deletionHistory.removeFirst()
+        let newState = photosToReview[currentIndex].isMarkedForDeletion
+        print("切换删除标记，索引: \(currentIndex), 新状态: \(newState ? "已标记删除" : "未删除")")
+        
+        // 如果是标记删除（而不是取消删除），自动前进到下一张
+        if newState && !wasMarked {
+            moveToNextPhotoIfPossible()
         }
-        
-        // 添加到待删除队列（延迟删除策略）
-        pendingDeletions.append(currentPhoto.asset)
-        
-        // 增加删除计数（UI 显示）
-        deletedCount += 1
-        
-        print("已添加到待删除队列，当前队列大小: \(pendingDeletions.count)，历史记录: \(deletionHistory.count)")
-        
-        // 移动到下一张
-        moveToNextPhotoAfterAction()
     }
     
-    /// 保留当前照片并移动到下一张
-    func keepCurrentPhoto() {
-        guard currentPhoto != nil else {
-            print("没有当前照片可保留")
-            return
-        }
-        
-        print("保留当前照片，索引: \(currentIndex)")
-        
-        keptCount += 1
-        
-        // 注意：保留操作不清除删除历史，允许用户撤销之前的删除操作
-        
-        // 移动到下一张
-        moveToNextPhotoAfterAction()
-    }
-    
-    /// 在执行操作后移动到下一张照片
-    private func moveToNextPhotoAfterAction() {
+    /// 移动到下一张照片（如果可能）
+    private func moveToNextPhotoIfPossible() {
         if currentIndex < totalPhotos - 1 {
-            // 还有照片未审阅，移动到下一张
             currentIndex += 1
-            print("移动到下一张照片，当前索引: \(currentIndex)")
+            print("自动移动到下一张照片，当前索引: \(currentIndex)")
         } else {
-            // 所有照片已审阅完毕
-            isSessionCompleted = true
-            isSessionActive = false
-            print("会话完成！删除: \(deletedCount), 保留: \(keptCount)")
+            print("已到达最后一张照片")
         }
     }
     
@@ -364,38 +327,6 @@ class TidySessionViewModel: ObservableObject {
         print("跳转到索引: \(currentIndex)")
     }
     
-    // MARK: - 撤销操作
-    
-    /// 撤销最后一次删除操作
-    /// 使用延迟删除策略时，可以真正恢复照片（从待删除队列中移除）
-    /// 支持多次撤销（最多 maxUndoSteps 次）
-    func undoLastDeletion() {
-        guard !deletionHistory.isEmpty else {
-            print("没有可撤销的删除操作")
-            return
-        }
-        
-        // 获取最后一次删除记录
-        let lastDeletion = deletionHistory.removeLast()
-        
-        print("撤销删除操作，恢复照片索引: \(lastDeletion.index)")
-        
-        // 从待删除队列中移除这张照片
-        if let queueIndex = pendingDeletions.firstIndex(where: { $0.localIdentifier == lastDeletion.asset.localIdentifier }) {
-            pendingDeletions.remove(at: queueIndex)
-            print("已从待删除队列中移除，剩余待删除: \(pendingDeletions.count)")
-        }
-        
-        // 减少删除计数
-        if deletedCount > 0 {
-            deletedCount -= 1
-        }
-        
-        // 跳回到被删除照片的位置
-        jumpToIndex(lastDeletion.index)
-        
-        print("撤销操作完成，当前索引: \(currentIndex)，剩余可撤销: \(deletionHistory.count)")
-    }
     
     // MARK: - 会话管理
     
@@ -405,13 +336,9 @@ class TidySessionViewModel: ObservableObject {
         
         photosToReview = []
         currentIndex = 0
-        deletedCount = 0
-        keptCount = 0
-        deletionHistory.removeAll()
         isSessionActive = false
         isSessionCompleted = false
         errorMessage = nil
-        pendingDeletions.removeAll()
     }
     
     /// 暂停会话
@@ -466,20 +393,22 @@ class TidySessionViewModel: ObservableObject {
         progressHandler: ((Int, Int) -> Void)? = nil,
         completion: @escaping (Bool) -> Void
     ) {
-        guard !pendingDeletions.isEmpty else {
+        let assetsToDelete = pendingDeletions  // 获取快照
+        
+        guard !assetsToDelete.isEmpty else {
             print("没有待删除的照片")
             completion(true)
             return
         }
         
-        let totalCount = pendingDeletions.count
+        let totalCount = assetsToDelete.count
         print("开始批量删除 \(totalCount) 张照片...")
         
         // 报告初始进度
         progressHandler?(0, totalCount)
         
         photoService.deleteAssets(
-            assets: pendingDeletions,
+            assets: assetsToDelete,
             progressHandler: { current, total in
                 // 更新进度
                 Task { @MainActor in
@@ -492,7 +421,10 @@ class TidySessionViewModel: ObservableObject {
             Task { @MainActor in
                 if success {
                     print("批量删除成功！共 \(totalCount) 张照片")
-                    self.pendingDeletions.removeAll()
+                    // 清空所有删除标记（删除成功后）
+                    for index in 0..<self.photosToReview.count {
+                        self.photosToReview[index].isMarkedForDeletion = false
+                    }
                     completion(true)
                 } else {
                     print("批量删除失败: \(error?.localizedDescription ?? "未知错误")")

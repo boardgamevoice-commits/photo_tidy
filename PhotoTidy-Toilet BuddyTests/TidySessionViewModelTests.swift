@@ -35,7 +35,6 @@ final class TidySessionViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.totalPhotos, 0)
         XCTAssertFalse(viewModel.isSessionActive)
         XCTAssertFalse(viewModel.isSessionCompleted)
-        XCTAssertFalse(viewModel.canUndo)
     }
     
     // MARK: - Progress Tests
@@ -118,115 +117,98 @@ final class TidySessionViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.currentIndex, 1)
     }
     
-    // MARK: - Delete/Keep Tests
+    // MARK: - Toggle Deletion Tests
     
-    func testKeepCurrentPhoto() {
+    func testToggleDeletionMark_MarkForDeletion() {
         // Given
         viewModel.photosToReview = (0..<3).map { _ in TidyPhoto(asset: MockPHAsset()) }
         viewModel.currentIndex = 0
-        let initialKeptCount = viewModel.keptCount
         
         // When
-        viewModel.keepCurrentPhoto()
+        viewModel.toggleDeletionMark()
         
         // Then
-        XCTAssertEqual(viewModel.keptCount, initialKeptCount + 1)
-        XCTAssertEqual(viewModel.currentIndex, 1, "应该移动到下一张")
+        XCTAssertEqual(viewModel.deletedCount, 1, "应该有1张照片被标记删除")
+        XCTAssertEqual(viewModel.keptCount, 2, "应该有2张照片保留")
+        XCTAssertEqual(viewModel.currentIndex, 1, "标记删除后应该自动移动到下一张")
+        XCTAssertTrue(viewModel.photosToReview[0].isMarkedForDeletion, "第一张照片应该被标记删除")
     }
     
-    func testDeleteCurrentPhoto() {
+    func testToggleDeletionMark_RestorePhoto() {
         // Given
         viewModel.photosToReview = (0..<3).map { _ in TidyPhoto(asset: MockPHAsset()) }
         viewModel.currentIndex = 0
-        let initialDeletedCount = viewModel.deletedCount
+        viewModel.toggleDeletionMark() // 先标记删除
+        viewModel.moveToPreviousPhoto() // 返回已删除的照片
         
         // When
-        viewModel.deleteCurrentPhoto()
+        viewModel.toggleDeletionMark() // 取消删除
         
         // Then
-        XCTAssertEqual(viewModel.deletedCount, initialDeletedCount + 1)
-        XCTAssertEqual(viewModel.currentIndex, 1, "应该移动到下一张")
-        XCTAssertTrue(viewModel.canUndo, "删除后应该可以撤销")
+        XCTAssertEqual(viewModel.deletedCount, 0, "应该没有照片被标记删除")
+        XCTAssertEqual(viewModel.keptCount, 3, "应该有3张照片保留")
+        XCTAssertEqual(viewModel.currentIndex, 0, "取消删除后应该停留在当前位置")
+        XCTAssertFalse(viewModel.photosToReview[0].isMarkedForDeletion, "第一张照片不应该被标记删除")
     }
     
-    // MARK: - Undo Tests
-    
-    func testUndoLastDeletion() {
+    func testToggleDeletionMark_MultiplePhotos() {
         // Given
         viewModel.photosToReview = (0..<5).map { _ in TidyPhoto(asset: MockPHAsset()) }
-        viewModel.currentIndex = 2
-        viewModel.deleteCurrentPhoto() // 删除索引2的照片，移到索引3
+        viewModel.currentIndex = 0
         
-        let deletedCountAfterDelete = viewModel.deletedCount
-        let currentIndexAfterDelete = viewModel.currentIndex
-        
-        // When
-        viewModel.undoLastDeletion()
+        // When: 标记删除3张照片
+        viewModel.toggleDeletionMark() // 删除索引0，移到索引1
+        viewModel.toggleDeletionMark() // 删除索引1，移到索引2
+        viewModel.toggleDeletionMark() // 删除索引2，移到索引3
         
         // Then
-        XCTAssertEqual(viewModel.deletedCount, deletedCountAfterDelete - 1)
-        XCTAssertEqual(viewModel.currentIndex, 2, "应该跳回到被删除照片的位置")
+        XCTAssertEqual(viewModel.deletedCount, 3, "应该有3张照片被标记删除")
+        XCTAssertEqual(viewModel.keptCount, 2, "应该有2张照片保留")
+        XCTAssertEqual(viewModel.currentIndex, 3, "应该在第4张照片")
     }
     
-    func testUndoCount() {
+    func testDeletedCount_Calculation() {
         // Given
         viewModel.photosToReview = (0..<5).map { _ in TidyPhoto(asset: MockPHAsset()) }
         
-        // When
-        viewModel.deleteCurrentPhoto()
-        viewModel.deleteCurrentPhoto()
+        // When: 手动标记几张照片为删除
+        viewModel.photosToReview[0].isMarkedForDeletion = true
+        viewModel.photosToReview[2].isMarkedForDeletion = true
+        viewModel.photosToReview[4].isMarkedForDeletion = true
         
         // Then
-        XCTAssertEqual(viewModel.undoCount, 2)
-    }
-    
-    func testMaxUndoSteps() {
-        // Given
-        viewModel.photosToReview = (0..<15).map { _ in TidyPhoto(asset: MockPHAsset()) }
-        
-        // When: 删除超过最大撤销步数
-        for _ in 0..<12 {
-            viewModel.deleteCurrentPhoto()
-        }
-        
-        // Then: 撤销次数应该被限制在10次
-        XCTAssertLessThanOrEqual(viewModel.undoCount, 10)
+        XCTAssertEqual(viewModel.deletedCount, 3, "应该基于状态计算删除数量")
+        XCTAssertEqual(viewModel.keptCount, 2, "应该基于状态计算保留数量")
     }
     
     // MARK: - Session Completion Tests
-    
-    func testSessionCompletion_KeepAll() {
-        // Given
-        viewModel.photosToReview = (0..<3).map { _ in TidyPhoto(asset: MockPHAsset()) }
-        viewModel.isSessionActive = true
-        
-        // When: 保留所有照片
-        viewModel.keepCurrentPhoto()
-        viewModel.keepCurrentPhoto()
-        viewModel.keepCurrentPhoto()
-        
-        // Then
-        XCTAssertTrue(viewModel.isSessionCompleted)
-        XCTAssertFalse(viewModel.isSessionActive)
-        XCTAssertEqual(viewModel.keptCount, 3)
-        XCTAssertEqual(viewModel.deletedCount, 0)
-    }
     
     func testSessionCompletion_DeleteAll() {
         // Given
         viewModel.photosToReview = (0..<3).map { _ in TidyPhoto(asset: MockPHAsset()) }
         viewModel.isSessionActive = true
         
-        // When: 删除所有照片
-        viewModel.deleteCurrentPhoto()
-        viewModel.deleteCurrentPhoto()
-        viewModel.deleteCurrentPhoto()
+        // When: 标记删除所有照片
+        viewModel.toggleDeletionMark() // 删除索引0，移到索引1
+        viewModel.toggleDeletionMark() // 删除索引1，移到索引2
+        viewModel.toggleDeletionMark() // 删除索引2，到达最后
         
         // Then
-        XCTAssertTrue(viewModel.isSessionCompleted)
-        XCTAssertFalse(viewModel.isSessionActive)
-        XCTAssertEqual(viewModel.deletedCount, 3)
-        XCTAssertEqual(viewModel.keptCount, 0)
+        XCTAssertEqual(viewModel.deletedCount, 3, "所有照片都应该被标记删除")
+        XCTAssertEqual(viewModel.keptCount, 0, "没有照片保留")
+    }
+    
+    func testPendingDeletions() {
+        // Given
+        viewModel.photosToReview = (0..<5).map { _ in TidyPhoto(asset: MockPHAsset()) }
+        
+        // When: 标记部分照片为删除
+        viewModel.photosToReview[1].isMarkedForDeletion = true
+        viewModel.photosToReview[3].isMarkedForDeletion = true
+        
+        // Then
+        XCTAssertEqual(viewModel.pendingDeletionCount, 2, "应该有2张照片待删除")
+        XCTAssertEqual(viewModel.pendingDeletions.count, 2, "待删除列表应该有2个资源")
     }
     
     // MARK: - Reset Tests
@@ -235,8 +217,8 @@ final class TidySessionViewModelTests: XCTestCase {
         // Given
         viewModel.photosToReview = (0..<5).map { _ in TidyPhoto(asset: MockPHAsset()) }
         viewModel.currentIndex = 2
-        viewModel.deletedCount = 1
-        viewModel.keptCount = 1
+        viewModel.photosToReview[0].isMarkedForDeletion = true
+        viewModel.photosToReview[1].isMarkedForDeletion = true
         viewModel.isSessionActive = true
         
         // When
@@ -244,11 +226,10 @@ final class TidySessionViewModelTests: XCTestCase {
         
         // Then
         XCTAssertEqual(viewModel.currentIndex, 0)
-        XCTAssertEqual(viewModel.deletedCount, 0)
-        XCTAssertEqual(viewModel.keptCount, 0)
+        XCTAssertEqual(viewModel.deletedCount, 0, "重置后删除计数应该为0")
+        XCTAssertEqual(viewModel.keptCount, 0, "重置后保留计数应该为0")
         XCTAssertEqual(viewModel.photosToReview.count, 0)
         XCTAssertFalse(viewModel.isSessionActive)
-        XCTAssertFalse(viewModel.canUndo)
     }
     
     // MARK: - Edge Cases
