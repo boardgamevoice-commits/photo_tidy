@@ -8,6 +8,52 @@
 import SwiftUI
 import Photos
 
+/// 照片数量计算结果状态
+enum PhotoCountResult {
+    case calculating
+    case success(Int)
+    case error(String)
+    
+    var displayText: String {
+        switch self {
+        case .calculating:
+            return "计算中..."
+        case .success(let count):
+            return "\(count)"
+        case .error:
+            return "未知"
+        }
+    }
+    
+    var isCalculating: Bool {
+        if case .calculating = self {
+            return true
+        }
+        return false
+    }
+    
+    var isError: Bool {
+        if case .error = self {
+            return true
+        }
+        return false
+    }
+    
+    var count: Int? {
+        if case .success(let count) = self {
+            return count
+        }
+        return nil
+    }
+    
+    var errorMessage: String? {
+        if case .error(let message) = self {
+            return message
+        }
+        return nil
+    }
+}
+
 /// 会话设置视图 - 用户配置整理会话的界面
 struct SessionSetupView: View {
     @ObservedObject var viewModel: TidySessionViewModel
@@ -1399,37 +1445,6 @@ enum PhotoCountError: LocalizedError {
     }
 }
 
-/// 照片数量计算结果状态
-enum PhotoCountResult {
-    case calculating
-    case success(Int)
-    case error(String)
-    
-    var displayText: String {
-        switch self {
-        case .calculating:
-            return "计算中..."
-        case .success(let count):
-            return "\(count)"
-        case .error:
-            return "未知"
-        }
-    }
-    
-    var isCalculating: Bool {
-        if case .calculating = self {
-            return true
-        }
-        return false
-    }
-    
-    var count: Int? {
-        if case .success(let count) = self {
-            return count
-        }
-        return nil
-    }
-}
 
 /// 过滤配置（支持多维度组合）
 struct FilterConfiguration: Codable, Equatable {
