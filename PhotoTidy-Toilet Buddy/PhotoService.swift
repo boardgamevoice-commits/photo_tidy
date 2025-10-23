@@ -85,17 +85,17 @@ class PhotoService: NSObject {
         
         switch status {
         case .authorized:
-            return L10n.Permission.statusAuthorized
+            return "permission.status_authorized".localized
         case .limited:
-            return L10n.Permission.statusLimited
+            return "permission.status_limited".localized
         case .denied:
-            return L10n.Permission.statusDenied
+            return "permission.status_denied".localized
         case .restricted:
-            return L10n.Permission.statusRestricted
+            return "permission.status_restricted".localized
         case .notDetermined:
-            return L10n.Permission.statusNotDetermined
+            return "permission.status_not_determined".localized
         @unknown default:
-            return L10n.Permission.statusUnknown
+            return "permission.status_unknown".localized
         }
     }
     

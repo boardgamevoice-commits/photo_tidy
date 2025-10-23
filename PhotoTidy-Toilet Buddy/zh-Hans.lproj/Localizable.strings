@@ -30,6 +30,7 @@
 "button.confirm_delete_and_start" = "确认删除并开始新任务";
 "button.clear" = "清除";
 "button.review_deletions" = "Review待删除照片";
+"button.share" = "分享";
 
 /* 加载状态 */
 "loading.general" = "加载中...";

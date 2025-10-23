@@ -30,6 +30,7 @@
 "button.confirm_delete_and_start" = "Confirm & Start";
 "button.clear" = "Clear";
 "button.review_deletions" = "Review Deletions";
+"button.share" = "Share";
 
 /* Loading States */
 "loading.general" = "Loading...";

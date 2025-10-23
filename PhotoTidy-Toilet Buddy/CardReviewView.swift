@@ -63,6 +63,11 @@ struct CardReviewView: View {
     // 动画任务管理
     @State private var animationTask: Task<Void, Never>?
     
+    // 分享功能
+    @State private var showShareSheet: Bool = false
+    @State private var shareItems: [Any] = []
+    @StateObject private var shareResultHandler = ShareResultHandler()
+    
     // MARK: - Constants
     
     private let dragThreshold: CGFloat = 100
@@ -141,6 +146,14 @@ struct CardReviewView: View {
             }
         } message: {
             Text(L10n.Error.consecutiveFailuresMessage(consecutiveFailures))
+        }
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheet(items: shareItems)
+        }
+        .alert("分享失败", isPresented: $shareResultHandler.showErrorAlert) {
+            Button("确定", role: .cancel) { }
+        } message: {
+            Text(shareResultHandler.errorMessage)
         }
     }
     
@@ -632,7 +645,7 @@ struct CardReviewView: View {
     // MARK: - Bottom Action Buttons (导航 + 删除/恢复)
     
     private var bottomActionButtons: some View {
-        HStack(spacing: 40) {
+        HStack(spacing: 30) {
             // 上一张按钮（左侧）
             Button(action: {
                 withAnimation(.spring(response: 0.3)) {
@@ -667,7 +680,7 @@ struct CardReviewView: View {
             .disabled(!viewModel.canMovePrevious)
             .opacity(viewModel.canMovePrevious ? 1.0 : 0.4)
             
-            // 删除/恢复按钮（中间）
+            // 删除/恢复按钮（左中）
             Button(action: {
                 handleToggleDeletion()
             }) {
@@ -681,15 +694,45 @@ struct CardReviewView: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 75, height: 75)
+                            .frame(width: 70, height: 70)
                             .shadow(color: (isCurrentPhotoMarked ? Color.orange : Color.red).opacity(0.4), radius: 10, x: 0, y: 5)
                         
                         Image(systemName: isCurrentPhotoMarked ? "arrow.uturn.backward" : "trash.fill")
-                            .font(.system(size: 30))
+                            .font(.system(size: 28))
                             .foregroundColor(.white)
                     }
                     
                     Text(isCurrentPhotoMarked ? L10n.Button.restore : L10n.Button.delete)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                }
+            }
+            .buttonStyle(ScaleButtonStyle())
+            
+            // 分享按钮（右中）
+            Button(action: {
+                handleShareAction()
+            }) {
+                VStack(spacing: 8) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.green, .green.opacity(0.8)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 65, height: 65)
+                            .shadow(color: .green.opacity(0.4), radius: 10, x: 0, y: 5)
+                        
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
+                    
+                    Text(L10n.Button.share)
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
@@ -731,7 +774,7 @@ struct CardReviewView: View {
             .disabled(!viewModel.canMoveNext)
             .opacity(viewModel.canMoveNext ? 1.0 : 0.4)
         }
-        .padding(.horizontal, 30)
+        .padding(.horizontal, 20)
     }
     
     /// 当前照片是否已标记删除
@@ -792,6 +835,39 @@ struct CardReviewView: View {
     }
     
     // MARK: - Actions
+    
+    /// 处理分享操作
+    private func handleShareAction() {
+        guard let currentPhoto = viewModel.currentPhoto else {
+            print("⚠️ 没有当前照片可以分享")
+            return
+        }
+        
+        // 触觉反馈
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+        
+        // 异步准备分享数据
+        Task { @MainActor in
+            let items = await ShareDataPreparer.prepareShareData(
+                for: currentPhoto,
+                currentImage: currentImage,
+                currentLivePhoto: currentLivePhoto,
+                videoPlayer: videoPlayer
+            )
+            
+            if items.isEmpty {
+                print("❌ 无法准备分享数据")
+                shareResultHandler.errorMessage = "无法准备分享内容，请重试"
+                shareResultHandler.showErrorAlert = true
+                return
+            }
+            
+            shareItems = items
+            showShareSheet = true
+            print("✅ 分享数据准备完成，项目数量: \(items.count)")
+        }
+    }
     
     private func handleDragEnd(translation: CGSize) {
         isDragging = false

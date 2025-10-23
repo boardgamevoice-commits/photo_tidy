@@ -102,7 +102,7 @@ struct SessionSetupView: View {
     // MARK: - Layout Variants
     
     private var iPhoneLayout: some View {
-        VStack(spacing: 30) {
+        VStack(spacing: 22) {
             // 标题区域
             headerSection
             
@@ -132,7 +132,7 @@ struct SessionSetupView: View {
     }
     
     private var iPadLayout: some View {
-        VStack(spacing: 40) {
+        VStack(spacing: 30) {
             // 标题区域
             headerSection
             
@@ -147,14 +147,14 @@ struct SessionSetupView: View {
             // iPad 双列布局
             HStack(alignment: .top, spacing: 30) {
                 // 左列：数量选择和启动按钮
-                VStack(spacing: 30) {
+                VStack(spacing: 25) {
                     photoCountSection
                     startButton
                 }
                 .frame(maxWidth: .infinity)
                 
                 // 右列：过滤选项
-                VStack(spacing: 30) {
+                VStack(spacing: 25) {
                     quickFiltersSection
                     advancedFilterButton
                 }
@@ -217,7 +217,7 @@ struct SessionSetupView: View {
     }
     
     private var adFreeStatusCard: some View {
-        HStack(spacing: 15) {
+        HStack(spacing: 12) {
             // 图标
             ZStack {
                 Circle()
@@ -228,29 +228,30 @@ struct SessionSetupView: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 50, height: 50)
+                    .frame(width: 42, height: 42)
                 
                 Image(systemName: "checkmark.shield.fill")
                     .foregroundColor(.white)
-                    .font(.title3)
+                    .font(.system(size: 16, weight: .medium))
             }
             
             // 文字内容
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(L10n.RewardedAd.statusActive)
-                    .font(.headline)
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.green)
                 
                 if let timeString = remainingAdFreeTime {
                     Text(L10n.RewardedAd.statusRemainingTime(timeString))
-                        .font(.caption)
+                        .font(.system(size: 12))
                         .foregroundColor(.secondary)
                 }
             }
             
             Spacer()
         }
-        .padding()
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 15)
                 .fill(Color.green.opacity(0.1))
@@ -264,7 +265,7 @@ struct SessionSetupView: View {
     private var watchAdCard: some View {
         let adReady = AdManager.shared.isRewardedAdReady()
         
-        return HStack(spacing: 15) {
+        return HStack(spacing: 12) {
             // 图标
             ZStack {
                 Circle()
@@ -275,21 +276,21 @@ struct SessionSetupView: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 50, height: 50)
+                    .frame(width: 42, height: 42)
                 
                 Image(systemName: "gift.fill")
                     .foregroundColor(.white)
-                    .font(.title3)
+                    .font(.system(size: 16, weight: .medium))
             }
             
             // 文字内容
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(L10n.RewardedAd.title)
-                    .font(.headline)
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(adReady ? .primary : .secondary)
                 
                 Text(adReady ? L10n.RewardedAd.description : L10n.RewardedAd.loading)
-                    .font(.caption)
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary)
             }
             
@@ -303,16 +304,15 @@ struct SessionSetupView: View {
                     if isLoadingRewardedAd {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(0.8)
+                            .scaleEffect(0.7)
                     } else {
                         Text(L10n.RewardedAd.buttonWatch)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+                            .font(.system(size: 13, weight: .semibold))
                     }
                 }
-                .frame(minWidth: 70)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .frame(minWidth: 65)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
                 .background(
                     LinearGradient(
                         colors: adReady ? [.yellow, .orange] : [.gray, .gray.opacity(0.7)],
@@ -321,12 +321,13 @@ struct SessionSetupView: View {
                     )
                 )
                 .foregroundColor(.white)
-                .cornerRadius(10)
+                .cornerRadius(8)
                 .opacity(adReady ? 1.0 : 0.6)
             }
             .disabled(isLoadingRewardedAd || !adReady)
         }
-        .padding()
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 15)
                 .fill(adReady ? Color.yellow.opacity(0.1) : Color.gray.opacity(0.05))

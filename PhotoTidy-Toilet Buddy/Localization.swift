@@ -215,11 +215,19 @@ struct L10n {
         static let photoDeletedOrCorrupted = "error.photo_deleted_or_corrupted".localized
         static let permission = "error.permission".localized
         static let permissionRequired = "error.permission_required".localized
+        static let permissionDenied = "error.permission_denied".localized
+        static let permissionRevoked = "error.permission_revoked".localized
+        static let photoLibraryUnavailable = "error.photo_library_unavailable".localized
+        static let noPhotosFound = "error.no_photos_found".localized
         static let consecutiveFailures = "error.consecutive_failures".localized
         static let cannotLoadMore = "error.cannot_load_more".localized
         
         static func consecutiveFailuresMessage(_ count: Int) -> String {
             "error.consecutive_failures_message".localized(count)
+        }
+        
+        static func batchDeleteFailedMessage(_ details: String) -> String {
+            "error.batch_delete_failed_message".localized(details)
         }
     }
     
@@ -243,6 +251,14 @@ struct L10n {
             static let delete = "permission.reason.delete".localized
             static let privacy = "permission.reason.privacy".localized
         }
+        
+        // Permission status descriptions
+        static let statusAuthorized = "permission.status_authorized".localized
+        static let statusLimited = "permission.status_limited".localized
+        static let statusDenied = "permission.status_denied".localized
+        static let statusRestricted = "permission.status_restricted".localized
+        static let statusNotDetermined = "permission.status_not_determined".localized
+        static let statusUnknown = "permission.status_unknown".localized
     }
     
     // MARK: - Alert
