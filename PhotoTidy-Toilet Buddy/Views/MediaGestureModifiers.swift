@@ -38,7 +38,7 @@ extension View {
                     : (isDeleting ? deleteDirection * UIScreen.main.bounds.width * 1.5 : dragOffset.width),
                 y: isZoomed 
                     ? panOffset.height + finalPanOffset.height
-                    : (isDeleting ? -50 : dragOffset.height * 0.2)
+                    : (isDeleting ? -50 : 0)
             )
             // 旋转效果
             .rotationEffect(.degrees(isDragging && !isZoomed ? Double(dragOffset.width) * cardRotationFactor : 0))
@@ -87,9 +87,9 @@ extension View {
                             // 放大状态：平移查看
                             panOffset.wrappedValue = value.translation
                         } else {
-                            // 正常状态：导航
+                            // 正常状态：导航 - 只使用水平移动
                             isDragging.wrappedValue = true
-                            dragOffset.wrappedValue = value.translation
+                            dragOffset.wrappedValue = CGSize(width: value.translation.width, height: 0)
                         }
                     }
                     .onEnded { value in

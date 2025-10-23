@@ -14,7 +14,7 @@ struct PhotoTidyToiletBuddyApp: App {
     
     init() {
         // 初始化 AdMob SDK
-        print("Photo Tidy App 启动")
+        AppLogger.shared.info("Photo Tidy App 启动", category: .general)
         AdManager.shared.initializeAdMob()
     }
     

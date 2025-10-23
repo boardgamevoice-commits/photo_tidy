@@ -77,10 +77,10 @@ class SettingsManager: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: settingsKey),
            let decoded = try? JSONDecoder().decode(Settings.self, from: data) {
             self.settings = decoded
-            print("✅ 已加载用户设置")
+            AppLogger.shared.info("已加载用户设置", category: .ui)
         } else {
             self.settings = Settings()
-            print("ℹ️ 使用默认设置")
+            AppLogger.shared.info("使用默认设置", category: .ui)
         }
         
         // 应用保存的语言设置
@@ -91,11 +91,11 @@ class SettingsManager: ObservableObject {
     private func applyLanguagePreference() {
         if let languageCode = settings.language.languageCode {
             UserDefaults.standard.set([languageCode], forKey: "AppleLanguages")
-            print("🌍 应用语言设置: \(languageCode)")
+            AppLogger.shared.info("应用语言设置: \(languageCode)", category: .ui)
         } else {
             // 跟随系统语言
             UserDefaults.standard.removeObject(forKey: "AppleLanguages")
-            print("🌍 应用语言设置: 跟随系统")
+            AppLogger.shared.info("应用语言设置: 跟随系统", category: .ui)
         }
         UserDefaults.standard.synchronize()
     }
@@ -106,14 +106,14 @@ class SettingsManager: ObservableObject {
     func saveSettings() {
         if let encoded = try? JSONEncoder().encode(settings) {
             UserDefaults.standard.set(encoded, forKey: settingsKey)
-            print("💾 设置已保存")
+            AppLogger.shared.info("设置已保存", category: .ui)
         }
     }
     
     /// 重置所有设置到默认值
     func resetSettings() {
         settings = Settings()
-        print("🔄 设置已重置为默认值")
+        AppLogger.shared.info("设置已重置为默认值", category: .ui)
     }
     
     // MARK: - Statistics Management
@@ -133,7 +133,7 @@ class SettingsManager: ObservableObject {
         // 触发 UI 更新
         statisticsUpdateTrigger += 1
         
-        print("📊 统计数据已更新：审阅 +\(reviewedCount), 删除 +\(deletedCount), 释放 +\(freedSpace) bytes")
+        AppLogger.shared.info("统计数据已更新：审阅 +\(reviewedCount), 删除 +\(deletedCount), 释放 +\(freedSpace) bytes", category: .ui)
     }
     
     /// 清除所有统计数据
@@ -146,7 +146,7 @@ class SettingsManager: ObservableObject {
         // 触发 UI 更新
         statisticsUpdateTrigger += 1
         
-        print("🧹 统计数据已清除")
+        AppLogger.shared.info("统计数据已清除", category: .ui)
     }
     
     /// 格式化存储空间为可读字符串

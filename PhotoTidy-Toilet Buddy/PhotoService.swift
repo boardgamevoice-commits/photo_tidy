@@ -43,21 +43,21 @@ class PhotoService: NSObject {
         
         switch currentStatus {
         case .authorized, .limited:
-            print("照片库权限已授予")
+            AppLogger.shared.info("照片库权限已授予", category: .photo)
             return currentStatus
             
         case .notDetermined:
-            print("请求照片库权限...")
+            AppLogger.shared.info("请求照片库权限...", category: .photo)
             let newStatus = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
-            print("权限请求结果: \(newStatus.rawValue)")
+            AppLogger.shared.info("权限请求结果: \(newStatus.rawValue)", category: .photo)
             return newStatus
             
         case .denied, .restricted:
-            print("照片库权限被拒绝或受限")
+            AppLogger.shared.warning("照片库权限被拒绝或受限", category: .photo)
             return currentStatus
             
         @unknown default:
-            print("未知的权限状态")
+            AppLogger.shared.warning("未知的权限状态", category: .photo)
             return currentStatus
         }
     }
@@ -123,11 +123,11 @@ class PhotoService: NSObject {
         // 2. 获取所有符合条件的资源
         let fetchResult = PHAsset.fetchAssets(with: fetchOptions)
         
-        print("✅ 找到 \(fetchResult.count) 个符合条件的照片")
+        AppLogger.shared.info("找到 \(fetchResult.count) 个符合条件的照片", category: .photo)
         
         // 如果没有资源，直接返回空数组
         guard fetchResult.count > 0 else {
-            print("❌ 没有找到符合条件的照片")
+            AppLogger.shared.warning("没有找到符合条件的照片", category: .photo)
             return []
         }
         
@@ -151,18 +151,18 @@ class PhotoService: NSObject {
             assetMap[identifier] = asset
         }
         
-        print("提取了 \(allIdentifiers.count) 个资源 ID\(needsSelfieFilter ? "（已应用自拍过滤）" : "")")
+        AppLogger.shared.debug("提取了 \(allIdentifiers.count) 个资源 ID\(needsSelfieFilter ? "（已应用自拍过滤）" : "")", category: .photo)
         
         // 4. 执行 Fisher-Yates 洗牌算法
         let shuffledIdentifiers = fisherYatesShuffle(array: allIdentifiers)
         
-        print("Fisher-Yates 洗牌完成")
+        AppLogger.shared.debug("Fisher-Yates 洗牌完成", category: .photo)
         
         // 5. 取前 N 个 ID
         let selectedCount = min(count, shuffledIdentifiers.count)
         let selectedIdentifiers = Array(shuffledIdentifiers.prefix(selectedCount))
         
-        print("选取了 \(selectedIdentifiers.count) 个随机照片")
+        AppLogger.shared.info("选取了 \(selectedIdentifiers.count) 个随机照片", category: .photo)
         
         // 6. 根据 ID 获取对应的 PHAsset
         let selectedAssets = selectedIdentifiers.compactMap { assetMap[$0] }

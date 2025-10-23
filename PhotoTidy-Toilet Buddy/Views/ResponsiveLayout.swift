@@ -362,7 +362,7 @@ extension View {
             }
             
             ResponsiveButton(style: .primary) {
-                print("Button tapped")
+                AppLogger.shared.debug("Button tapped", category: .ui)
             } label: {
                 Text("Primary Button")
             }
@@ -386,7 +386,7 @@ extension View {
             }
             
             ResponsiveButton(style: .primary) {
-                print("Button tapped")
+                AppLogger.shared.debug("Button tapped", category: .ui)
             } label: {
                 Text("Primary Button")
             }

@@ -429,7 +429,7 @@ struct SessionCompleteView: View {
     
     private func handleStartNewSession() {
         // 先执行待删除照片的批量删除
-        print("准备执行批量删除...")
+        AppLogger.shared.info("准备执行批量删除...", category: .photo)
         
         // 显示删除进度
         if viewModel.pendingDeletionCount > 0 {
@@ -455,19 +455,19 @@ struct SessionCompleteView: View {
                 }
                 
                 if success {
-                    print("批量删除完成")
+                    AppLogger.shared.info("批量删除完成", category: .photo)
                 } else {
-                    print("批量删除失败，但继续流程")
+                    AppLogger.shared.warning("批量删除失败，但继续流程", category: .photo)
                 }
                 
                 // 删除完成后，检查是否需要显示广告
                 if viewModel.shouldShowAd() {
-                    print("达到广告阈值，准备显示广告...")
+                    AppLogger.shared.info("达到广告阈值，准备显示广告...", category: .ui)
                     showingAd = true
                     
                     // 显示广告
                     AdManager.shared.showInterstitialAd { [self] in
-                        print("广告已关闭，准备开始新会话")
+                        AppLogger.shared.info("广告已关闭，准备开始新会话", category: .ui)
                         showingAd = false
                         
                         // 广告关闭后，重置会话并返回设置界面
@@ -477,7 +477,7 @@ struct SessionCompleteView: View {
                     }
                 } else {
                     // 不需要广告，直接重置会话
-                    print("未达到广告阈值，直接开始新会话")
+                    AppLogger.shared.info("未达到广告阈值，直接开始新会话", category: .ui)
                     viewModel.resetSession()
                 }
             }

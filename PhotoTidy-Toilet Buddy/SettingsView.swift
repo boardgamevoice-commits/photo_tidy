@@ -378,11 +378,11 @@ struct SettingsView: View {
         // 设置应用语言偏好（通过 UserDefaults 持久化）
         if let languageCode = language.languageCode {
             UserDefaults.standard.set([languageCode], forKey: "AppleLanguages")
-            print("✅ 已设置应用语言为: \(languageCode)")
+            AppLogger.shared.info("已设置应用语言为: \(languageCode)", category: .ui)
         } else {
             // 清除设置，跟随系统
             UserDefaults.standard.removeObject(forKey: "AppleLanguages")
-            print("✅ 已设置应用语言为：跟随系统")
+            AppLogger.shared.info("已设置应用语言为：跟随系统", category: .ui)
         }
         UserDefaults.standard.synchronize()
     }

@@ -11,6 +11,15 @@ import PhotosUI
 import AVFoundation
 import AVKit
 
+// MARK: - 滑动方向枚举
+
+/// 滑动方向
+enum SlideDirection {
+    case none
+    case left    // 向左滑动，显示下一张
+    case right   // 向右滑动，显示上一张
+}
+
 // MARK: - 预加载任务管理器
 
 /// 预加载任务优先级
@@ -357,6 +366,13 @@ struct CardReviewView: View {
     @State private var loadProgress: Double = 0.0
     @State private var loadTask: Task<Void, Never>?
     
+    // 滑动动画相关状态
+    @State private var previousImage: UIImage?
+    @State private var nextImage: UIImage?
+    @State private var slideOffset: CGFloat = 0
+    @State private var isTransitioning: Bool = false
+    @State private var slideDirection: SlideDirection = .none
+    
     // Live Photo 支持
     @State private var currentLivePhoto: PHLivePhoto?
     @State private var isPlayingLive: Bool = false
@@ -447,7 +463,10 @@ struct CardReviewView: View {
             preloadNextPhotos()
         }
         .onChange(of: viewModel.currentIndex) { _ in
-            loadCurrentPhoto()
+            // 如果不在滑动动画中，才重新加载当前照片
+            if !isTransitioning {
+                loadCurrentPhoto()
+            }
             preloadNextPhotos()
             resetAnimationStates()
         }
@@ -920,42 +939,79 @@ struct CardReviewView: View {
                 }
                 
             case .image, .panorama:
-                // 普通照片/全景照片渲染
-                if let image = currentImage {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .clipShape(RoundedRectangle(cornerRadius: 20))
-                        .shadow(color: Color.black.opacity(0.5), radius: 20, x: 0, y: 10)
-                        .applyMediaTransforms(
-                            isZoomed: isZoomed,
-                            currentScale: currentScale,
-                            finalScale: finalScale,
-                            panOffset: panOffset,
-                            finalPanOffset: finalPanOffset,
-                            dragOffset: dragOffset,
-                            isDragging: isDragging,
-                            isDeleting: isDeleting,
-                            deleteDirection: deleteDirection,
-                            cardRotationFactor: cardRotationFactor
-                        )
-                        .applyMediaGestures(
-                            isZoomed: $isZoomed,
-                            currentScale: $currentScale,
-                            finalScale: $finalScale,
-                            panOffset: $panOffset,
-                            finalPanOffset: $finalPanOffset,
-                            dragOffset: $dragOffset,
-                            isDragging: $isDragging,
-                            onMagnificationEnd: handleMagnificationEnd,
-                            onPanEnd: handlePanEnd,
-                            onDragEnd: handleDragEnd,
-                            onDoubleTap: handleDoubleTap
-                        )
-                }
+                // 普通照片/全景照片渲染 - 支持滑动动画
+                slideAnimationView(geometry: geometry)
             }
         }
+    }
+    
+    // MARK: - 滑动动画视图
+    
+    /// 支持滑动动画的照片视图
+    @ViewBuilder
+    private func slideAnimationView(geometry: GeometryProxy) -> some View {
+        ZStack {
+            // 上一张照片层 (从左侧滑入)
+            if let previous = previousImage, slideDirection == .right {
+                Image(uiImage: previous)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .shadow(color: Color.black.opacity(0.5), radius: 20, x: 0, y: 10)
+                    .offset(x: slideOffset - geometry.size.width)
+                    .opacity(isTransitioning ? 1 : 0)
+            }
+            
+            // 当前照片层
+            if let current = currentImage {
+                Image(uiImage: current)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .shadow(color: Color.black.opacity(0.5), radius: 20, x: 0, y: 10)
+                    .offset(x: slideOffset)
+                    .applyMediaTransforms(
+                        isZoomed: isZoomed,
+                        currentScale: currentScale,
+                        finalScale: finalScale,
+                        panOffset: panOffset,
+                        finalPanOffset: finalPanOffset,
+                        dragOffset: dragOffset,
+                        isDragging: isDragging,
+                        isDeleting: isDeleting,
+                        deleteDirection: deleteDirection,
+                        cardRotationFactor: cardRotationFactor
+                    )
+                    .applyMediaGestures(
+                        isZoomed: $isZoomed,
+                        currentScale: $currentScale,
+                        finalScale: $finalScale,
+                        panOffset: $panOffset,
+                        finalPanOffset: $finalPanOffset,
+                        dragOffset: $dragOffset,
+                        isDragging: $isDragging,
+                        onMagnificationEnd: handleMagnificationEnd,
+                        onPanEnd: handlePanEnd,
+                        onDragEnd: handleDragEnd,
+                        onDoubleTap: handleDoubleTap
+                    )
+            }
+            
+            // 下一张照片层 (从右侧滑入)
+            if let next = nextImage, slideDirection == .left {
+                Image(uiImage: next)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .shadow(color: Color.black.opacity(0.5), radius: 20, x: 0, y: 10)
+                    .offset(x: slideOffset + geometry.size.width)
+                    .opacity(isTransitioning ? 1 : 0)
+            }
+        }
+        .clipped() // 确保超出边界的部分被裁剪
     }
     
     // MARK: - Bottom Action Buttons (导航 + 删除/恢复)
@@ -964,9 +1020,7 @@ struct CardReviewView: View {
         HStack(spacing: 20) {
             // 上一张按钮（左侧）
             Button(action: {
-                withAnimation(.spring(response: 0.3)) {
-                    viewModel.moveToPreviousPhoto()
-                }
+                slideToPrevious()
             }) {
                 VStack(spacing: 8) {
                     ZStack {
@@ -1064,9 +1118,7 @@ struct CardReviewView: View {
                     dismiss()
                 } else {
                     // 其他时候，点击下一张按钮
-                    withAnimation(.spring(response: 0.3)) {
-                        viewModel.moveToNextPhoto()
-                    }
+                    slideToNext()
                 }
             }) {
                 VStack(spacing: 8) {
@@ -1188,23 +1240,109 @@ struct CardReviewView: View {
         
         // 左滑 - 下一张
         if translation.width < -dragThreshold {
-            withAnimation(.spring(response: 0.3)) {
-                viewModel.moveToNextPhoto()
-            }
+            slideToNext()
+            // 不重置dragOffset，让滑动动画处理
         }
         // 右滑 - 上一张
         else if translation.width > dragThreshold {
+            slideToPrevious()
+            // 不重置dragOffset，让滑动动画处理
+        }
+        else {
+            // 没有达到滑动阈值，重置偏移
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                dragOffset = .zero
+            }
+        }
+    }
+    
+    // MARK: - 滑动动画方法
+    
+    /// 滑动到上一张照片
+    private func slideToPrevious() {
+        guard viewModel.canMovePrevious, !isTransitioning else { return }
+        
+        // 获取上一张照片
+        let previousIndex = viewModel.currentIndex - 1
+        if let previousImage = preloadedImages[previousIndex] {
+            self.previousImage = previousImage
+            slideDirection = .right
+            isTransitioning = true
+            
+            // 执行滑动动画
+            withAnimation(.easeInOut(duration: 0.3)) {
+                slideOffset = UIScreen.main.bounds.width
+            }
+            
+            // 动画完成后更新状态
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.completeSlideTransition()
+            }
+        } else {
+            // 没有预加载的图片，使用原来的方式
             withAnimation(.spring(response: 0.3)) {
                 viewModel.moveToPreviousPhoto()
             }
         }
+    }
+    
+    /// 滑动到下一张照片
+    private func slideToNext() {
+        guard viewModel.canMoveNext, !isTransitioning else { return }
         
-        // 重置偏移
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-            dragOffset = .zero
+        // 获取下一张照片
+        let nextIndex = viewModel.currentIndex + 1
+        if let nextImage = preloadedImages[nextIndex] {
+            self.nextImage = nextImage
+            slideDirection = .left
+            isTransitioning = true
+            
+            // 执行滑动动画
+            withAnimation(.easeInOut(duration: 0.3)) {
+                slideOffset = -UIScreen.main.bounds.width
+            }
+            
+            // 动画完成后更新状态
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.completeSlideTransition()
+            }
+        } else {
+            // 没有预加载的图片，使用原来的方式
+            withAnimation(.spring(response: 0.3)) {
+                viewModel.moveToNextPhoto()
+            }
         }
     }
     
+    /// 完成滑动过渡
+    private func completeSlideTransition() {
+        // 保存滑动方向，因为后面会重置
+        let direction = slideDirection
+        
+        // 先重置动画状态，避免触发loadCurrentPhoto
+        slideOffset = 0
+        slideDirection = .none
+        isTransitioning = false
+        dragOffset = .zero // 重置拖拽偏移
+        
+        // 更新当前图片为滑动目标图片
+        if direction == .left, let next = nextImage {
+            currentImage = next
+        } else if direction == .right, let previous = previousImage {
+            currentImage = previous
+        }
+        
+        // 清理临时图片
+        previousImage = nil
+        nextImage = nil
+        
+        // 最后更新viewModel的索引（这会触发预加载，但不会重新加载当前图片）
+        if direction == .left {
+            viewModel.moveToNextPhoto()
+        } else if direction == .right {
+            viewModel.moveToPreviousPhoto()
+        }
+    }
     
     // MARK: - 缩放手势处理
     
@@ -1336,6 +1474,18 @@ struct CardReviewView: View {
     private func loadCurrentPhoto() {
         // 取消之前的加载任务
         loadTask?.cancel()
+        
+        // 如果正在滑动动画中，不重新加载当前图片
+        guard !isTransitioning else {
+            AppLogger.shared.debug("正在滑动动画中，跳过重新加载当前图片", category: .photo)
+            return
+        }
+        
+        // 重置滑动动画状态（仅在非动画期间）
+        slideOffset = 0
+        slideDirection = .none
+        previousImage = nil
+        nextImage = nil
         
         guard let currentPhoto = viewModel.currentPhoto else {
             // 没有当前照片时，清空状态并停止加载

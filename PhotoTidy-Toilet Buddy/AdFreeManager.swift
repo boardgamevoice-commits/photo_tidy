@@ -27,7 +27,7 @@ class AdFreeManager {
     // MARK: - Private Init
     
     private init() {
-        print("AdFreeManager 初始化")
+        AppLogger.shared.info("AdFreeManager 初始化", category: .ui)
     }
     
     // MARK: - Public Methods
@@ -42,9 +42,9 @@ class AdFreeManager {
         let isFree = Date() < expiryDate
         
         if isFree {
-            print("✓ 用户处于无广告期间，到期时间: \(expiryDate)")
+            AppLogger.shared.info("用户处于无广告期间，到期时间: \(expiryDate)", category: .ui)
         } else {
-            print("✗ 无广告已过期，过期时间: \(expiryDate)")
+            AppLogger.shared.info("无广告已过期，过期时间: \(expiryDate)", category: .ui)
             // 清理过期数据
             clearExpiredAdFreeStatus()
         }
@@ -70,8 +70,8 @@ class AdFreeManager {
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         defaults.set(dateFormatter.string(from: Date()), forKey: lastActivationDateKey)
         
-        print("🎁 激活无广告模式成功！到期时间: \(expiryDate)")
-        print("📊 累计激活次数: \(currentCount + 1)")
+        AppLogger.shared.info("激活无广告模式成功！到期时间: \(expiryDate)", category: .ui)
+        AppLogger.shared.info("累计激活次数: \(currentCount + 1)", category: .ui)
     }
     
     /// 获取无广告剩余时间（秒）
@@ -119,7 +119,7 @@ class AdFreeManager {
     /// 手动清除无广告状态（用于测试或特殊场景）
     func clearAdFreeStatus() {
         UserDefaults.standard.removeObject(forKey: adFreeExpiryKey)
-        print("⚠️ 已手动清除无广告状态")
+        AppLogger.shared.warning("已手动清除无广告状态", category: .ui)
     }
     
     // MARK: - Private Methods
@@ -127,7 +127,7 @@ class AdFreeManager {
     /// 清理已过期的无广告状态数据
     private func clearExpiredAdFreeStatus() {
         UserDefaults.standard.removeObject(forKey: adFreeExpiryKey)
-        print("🗑️ 已清理过期的无广告状态")
+        AppLogger.shared.info("已清理过期的无广告状态", category: .ui)
     }
 }
 

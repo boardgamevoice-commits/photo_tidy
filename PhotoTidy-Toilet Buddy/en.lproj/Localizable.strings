@@ -268,3 +268,15 @@
 "rewarded_ad.ad_not_ready" = "Ad is loading...";
 "rewarded_ad.loading" = "Loading ad...";
 
+/* Photo Count Calculation */
+"photo.count.calculating" = "Calculating...";
+"photo.count.error" = "Calculation Failed";
+"photo.count.unknown" = "Unknown";
+"photo.count.total" = "total:";
+"photo.count.photos" = " photos";
+"photo.count.meets_all_conditions" = "Meet all conditions:";
+"photo.count.calculating_short" = "Calculating";
+"photo.count.photos_short" = " photos";
+"photo.count.permission_denied" = "Photo library permission denied";
+"photo.count.calculation_failed" = "Calculation failed: %@";
+

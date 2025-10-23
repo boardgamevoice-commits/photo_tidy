@@ -37,10 +37,10 @@ class AdManager: NSObject {
     /// Call this method during app launch
     func initializeAdMob() {
         GADMobileAds.sharedInstance().start { status in
-            print("AdMob SDK 初始化完成")
+            AppLogger.shared.info("AdMob SDK 初始化完成", category: .network)
             // 记录适配器状态
             for adapter in status.adapterStatusesByClassName {
-                print("AdMob 适配器: \(adapter.key) - 状态: \(adapter.value.state.rawValue)")
+                AppLogger.shared.debug("AdMob 适配器: \(adapter.key) - 状态: \(adapter.value.state.rawValue)", category: .network)
             }
             
             // 初始化完成后预加载广告
@@ -54,17 +54,17 @@ class AdManager: NSObject {
     /// Load an interstitial ad
     /// Call this method to preload an ad before showing it
     func loadInterstitialAd() {
-        print("开始加载插页式广告...")
+        AppLogger.shared.info("开始加载插页式广告...", category: .network)
         let request = GADRequest()
         
         GADInterstitialAd.load(withAdUnitID: interstitialAdUnitID, request: request) { [weak self] ad, error in
             if let error = error {
-                print("插页式广告加载失败: \(error.localizedDescription)")
+                AppLogger.shared.error("插页式广告加载失败", error: error, category: .network)
                 self?.interstitialAd = nil
                 return
             }
             
-            print("插页式广告加载成功 ✓")
+            AppLogger.shared.info("插页式广告加载成功", category: .network)
             self?.interstitialAd = ad
             self?.interstitialAd?.fullScreenContentDelegate = self
         }
@@ -76,19 +76,19 @@ class AdManager: NSObject {
         // 获取当前活跃的 window scene
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let rootViewController = windowScene.windows.first?.rootViewController else {
-            print("无法获取 root view controller")
+            AppLogger.shared.error("无法获取 root view controller", category: .ui)
             completion()
             return
         }
         
         if let interstitialAd = interstitialAd {
-            print("准备展示插页式广告...")
+            AppLogger.shared.info("准备展示插页式广告...", category: .network)
             // 保存完成回调
             self.adDismissalCompletion = completion
             // 展示广告
             interstitialAd.present(fromRootViewController: rootViewController)
         } else {
-            print("插页式广告未准备好，跳过广告展示")
+            AppLogger.shared.warning("插页式广告未准备好，跳过广告展示", category: .network)
             completion()
             // 尝试重新加载广告以备下次使用
             loadInterstitialAd()
@@ -100,17 +100,17 @@ class AdManager: NSObject {
     /// Load a rewarded ad
     /// Call this method to preload a rewarded ad before showing it
     func loadRewardedAd() {
-        print("开始加载激励广告...")
+        AppLogger.shared.info("开始加载激励广告...", category: .network)
         let request = GADRequest()
         
         GADRewardedAd.load(withAdUnitID: rewardedAdUnitID, request: request) { [weak self] ad, error in
             if let error = error {
-                print("激励广告加载失败: \(error.localizedDescription)")
+                AppLogger.shared.error("激励广告加载失败", error: error, category: .network)
                 self?.rewardedAd = nil
                 return
             }
             
-            print("激励广告加载成功 ✓")
+            AppLogger.shared.info("激励广告加载成功", category: .network)
             self?.rewardedAd = ad
             self?.rewardedAd?.fullScreenContentDelegate = self
         }
@@ -124,13 +124,13 @@ class AdManager: NSObject {
         // 获取当前活跃的 window scene
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let rootViewController = windowScene.windows.first?.rootViewController else {
-            print("无法获取 root view controller")
+            AppLogger.shared.error("无法获取 root view controller", category: .ui)
             completion(false)
             return
         }
         
         if let rewardedAd = rewardedAd {
-            print("准备展示激励广告...")
+            AppLogger.shared.info("准备展示激励广告...", category: .network)
             // 保存奖励回调
             self.rewardedAdCompletion = completion
             
@@ -138,11 +138,11 @@ class AdManager: NSObject {
             rewardedAd.present(fromRootViewController: rootViewController) {
                 // 用户观看完广告，获得奖励
                 let reward = rewardedAd.adReward
-                print("🎁 用户获得奖励: \(reward.amount) \(reward.type)")
+                AppLogger.shared.info("用户获得奖励: \(reward.amount) \(reward.type)", category: .network)
                 self.userEarnedReward = true
             }
         } else {
-            print("激励广告未准备好，无法展示")
+            AppLogger.shared.warning("激励广告未准备好，无法展示", category: .network)
             completion(false)
             // 尝试重新加载广告以备下次使用
             loadRewardedAd()
@@ -169,25 +169,25 @@ extension AdManager: GADFullScreenContentDelegate {
     func adDidDismissFullScreenContent(_ ad: GADFullScreenPresentingAd) {
         // 判断是插页式广告还是激励广告
         if ad is GADInterstitialAd {
-            print("插页式广告已关闭")
+            AppLogger.shared.info("插页式广告已关闭", category: .network)
             interstitialAd = nil
             
             // 调用完成回调
             if let completion = adDismissalCompletion {
-                print("执行广告关闭回调")
+                AppLogger.shared.debug("执行广告关闭回调", category: .network)
                 completion()
                 adDismissalCompletion = nil
             }
             
             // 预加载下一个广告
-            print("预加载下一个插页式广告...")
+            AppLogger.shared.debug("预加载下一个插页式广告...", category: .network)
             loadInterstitialAd()
         } else if ad is GADRewardedAd {
-            print("激励广告已关闭")
+            AppLogger.shared.info("激励广告已关闭", category: .network)
             
             // 调用奖励回调
             if let completion = rewardedAdCompletion {
-                print("执行激励广告回调，是否获得奖励: \(userEarnedReward)")
+                AppLogger.shared.debug("执行激励广告回调，是否获得奖励: \(userEarnedReward)", category: .network)
                 completion(userEarnedReward)
                 rewardedAdCompletion = nil
                 userEarnedReward = false
@@ -196,65 +196,65 @@ extension AdManager: GADFullScreenContentDelegate {
             rewardedAd = nil
             
             // 预加载下一个激励广告
-            print("预加载下一个激励广告...")
+            AppLogger.shared.debug("预加载下一个激励广告...", category: .network)
             loadRewardedAd()
         }
     }
     
     func ad(_ ad: GADFullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
         if ad is GADInterstitialAd {
-            print("插页式广告展示失败: \(error.localizedDescription)")
+            AppLogger.shared.error("插页式广告展示失败", error: error, category: .network)
             interstitialAd = nil
             
             // 即使失败也调用完成回调
             if let completion = adDismissalCompletion {
-                print("广告展示失败，执行回调")
+                AppLogger.shared.debug("广告展示失败，执行回调", category: .network)
                 completion()
                 adDismissalCompletion = nil
             }
             
             // 尝试重新加载
-            print("尝试重新加载插页式广告...")
+            AppLogger.shared.debug("尝试重新加载插页式广告...", category: .network)
             loadInterstitialAd()
         } else if ad is GADRewardedAd {
-            print("激励广告展示失败: \(error.localizedDescription)")
+            AppLogger.shared.error("激励广告展示失败", error: error, category: .network)
             rewardedAd = nil
             
             // 即使失败也调用回调
             if let completion = rewardedAdCompletion {
-                print("激励广告展示失败，执行回调")
+                AppLogger.shared.debug("激励广告展示失败，执行回调", category: .network)
                 completion(false)
                 rewardedAdCompletion = nil
                 userEarnedReward = false
             }
             
             // 尝试重新加载
-            print("尝试重新加载激励广告...")
+            AppLogger.shared.debug("尝试重新加载激励广告...", category: .network)
             loadRewardedAd()
         }
     }
     
     func adWillPresentFullScreenContent(_ ad: GADFullScreenPresentingAd) {
         if ad is GADInterstitialAd {
-            print("插页式广告即将展示")
+            AppLogger.shared.debug("插页式广告即将展示", category: .network)
         } else if ad is GADRewardedAd {
-            print("激励广告即将展示")
+            AppLogger.shared.debug("激励广告即将展示", category: .network)
         }
     }
     
     func adDidRecordImpression(_ ad: GADFullScreenPresentingAd) {
         if ad is GADInterstitialAd {
-            print("插页式广告已记录展示")
+            AppLogger.shared.debug("插页式广告已记录展示", category: .network)
         } else if ad is GADRewardedAd {
-            print("激励广告已记录展示")
+            AppLogger.shared.debug("激励广告已记录展示", category: .network)
         }
     }
     
     func adDidRecordClick(_ ad: GADFullScreenPresentingAd) {
         if ad is GADInterstitialAd {
-            print("插页式广告已记录点击")
+            AppLogger.shared.debug("插页式广告已记录点击", category: .network)
         } else if ad is GADRewardedAd {
-            print("激励广告已记录点击")
+            AppLogger.shared.debug("激励广告已记录点击", category: .network)
         }
     }
 }

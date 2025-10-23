@@ -268,3 +268,15 @@
 "rewarded_ad.ad_not_ready" = "广告正在加载中...";
 "rewarded_ad.loading" = "加载广告中...";
 
+/* 照片数量计算 */
+"photo.count.calculating" = "计算中...";
+"photo.count.error" = "计算失败";
+"photo.count.unknown" = "未知";
+"photo.count.total" = "total:";
+"photo.count.photos" = "张照片";
+"photo.count.meets_all_conditions" = "满足所有条件:";
+"photo.count.calculating_short" = "计算中";
+"photo.count.photos_short" = "张";
+"photo.count.permission_denied" = "相册权限不足";
+"photo.count.calculation_failed" = "计算失败: %@";
+

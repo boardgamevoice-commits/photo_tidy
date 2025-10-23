@@ -235,7 +235,7 @@ struct ReviewDeletionsView: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                 viewModel.photosToReview[index].isMarkedForDeletion = false
             }
-            print("✓ 已取消删除: \(photo.id)")
+            AppLogger.shared.info("已取消删除: \(photo.id)", category: .ui)
         }
     }
     
@@ -252,7 +252,7 @@ struct ReviewDeletionsView: View {
                 }
             }
         }
-        print("✓ 已取消所有删除标记")
+        AppLogger.shared.info("已取消所有删除标记", category: .ui)
     }
     
     /// 加载照片缩略图
