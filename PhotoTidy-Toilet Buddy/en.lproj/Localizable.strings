@@ -29,6 +29,7 @@
 "button.skip_all_failed" = "Skip All Failed";
 "button.confirm_delete_and_start" = "Confirm & Start";
 "button.clear" = "Clear";
+"button.review_deletions" = "Review Deletions";
 
 /* Loading States */
 "loading.general" = "Loading...";
@@ -144,6 +145,17 @@
 "session.complete.estimated_space" = "Estimated Space";
 "session.complete.session_count" = "Sessions Completed";
 "session.complete.will_delete_count" = "Will delete %d photos";
+
+/* Review Deletions */
+"review_deletions.title" = "Photos to Delete";
+"review_deletions.card_title" = "Review Pending Deletions";
+"review_deletions.no_photos" = "No photos marked for deletion";
+"review_deletions.all_restored" = "All photos have been restored";
+"review_deletions.tap_to_restore" = "Tap photos to cancel deletion";
+"review_deletions.cancel_all" = "Restore All";
+"review_deletions.complete" = "Done";
+"review_deletions.will_delete_count" = "%d photos will be deleted";
+"review_deletions.storage_to_free" = "About %@ to be freed";
 
 /* Settings */
 "settings.title" = "Settings";

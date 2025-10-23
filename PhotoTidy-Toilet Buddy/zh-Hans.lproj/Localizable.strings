@@ -29,6 +29,7 @@
 "button.skip_all_failed" = "跳过所有错误照片";
 "button.confirm_delete_and_start" = "确认删除并开始新任务";
 "button.clear" = "清除";
+"button.review_deletions" = "Review待删除照片";
 
 /* 加载状态 */
 "loading.general" = "加载中...";
@@ -144,6 +145,17 @@
 "session.complete.estimated_space" = "预计释放空间";
 "session.complete.session_count" = "完成会话次数";
 "session.complete.will_delete_count" = "将批量删除 %d 张照片";
+
+/* Review待删除照片 */
+"review_deletions.title" = "待删除照片";
+"review_deletions.card_title" = "Review待删除照片";
+"review_deletions.no_photos" = "没有待删除的照片";
+"review_deletions.all_restored" = "所有照片都已恢复";
+"review_deletions.tap_to_restore" = "点击照片可取消删除";
+"review_deletions.cancel_all" = "全部恢复";
+"review_deletions.complete" = "完成Review";
+"review_deletions.will_delete_count" = "将删除 %d 张照片";
+"review_deletions.storage_to_free" = "将释放约 %@";
 
 /* 设置 */
 "settings.title" = "设置";

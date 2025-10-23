@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7A169A1967101CEE69C51CD9 /* ReviewDeletionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7A195AB8078E9F52B66AACD /* ReviewDeletionsView.swift */; };
 		81A8AA571B09B960C713F89E /* Pods_PhotoTidy_Toilet_Buddy.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A3CAAB1287CD5FA3B8E9A908 /* Pods_PhotoTidy_Toilet_Buddy.framework */; };
 		A1000001000000000000001 /* PhotoTidyToiletBuddyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000001 /* PhotoTidyToiletBuddyApp.swift */; };
 		A1000003000000000000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000000000000001 /* ContentView.swift */; };
@@ -54,6 +55,7 @@
 		A1000042000000000000001 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A3CAAB1287CD5FA3B8E9A908 /* Pods_PhotoTidy_Toilet_Buddy.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_PhotoTidy_Toilet_Buddy.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C3F7062DCAA2022517302655 /* Pods-PhotoTidy-Toilet Buddy.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PhotoTidy-Toilet Buddy.release.xcconfig"; path = "Target Support Files/Pods-PhotoTidy-Toilet Buddy/Pods-PhotoTidy-Toilet Buddy.release.xcconfig"; sourceTree = "<group>"; };
+		F7A195AB8078E9F52B66AACD /* ReviewDeletionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewDeletionsView.swift; sourceTree = "<group>"; };
 		L2388FAA8EE2A41BA88B5140 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		L2713C566A48041D4A43EF51 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		L9F03AD94C1664952ADE46B8 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
@@ -130,6 +132,7 @@
 				L4B8D52D2D00C47FFB434585 /* Localizable.strings */,
 				A1000008000000000000001 /* Assets.xcassets */,
 				A1000010000000000000001 /* Info.plist */,
+				F7A195AB8078E9F52B66AACD /* ReviewDeletionsView.swift */,
 			);
 			path = "PhotoTidy-Toilet Buddy";
 			sourceTree = "<group>";
@@ -307,6 +310,7 @@
 				NEW00009000000000000001 /* MediaGestureModifiers.swift in Sources */,
 				NEW00011000000000000001 /* MediaTypes.swift in Sources */,
 				NEW00013000000000000001 /* SupportingViews.swift in Sources */,
+				7A169A1967101CEE69C51CD9 /* ReviewDeletionsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

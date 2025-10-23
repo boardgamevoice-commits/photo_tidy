@@ -19,6 +19,9 @@ struct SessionCompleteView: View {
     @State private var deleteProgress: Int = 0
     @State private var deleteTotalCount: Int = 0
     
+    // Review待删除照片状态
+    @State private var showReviewDeletions = false
+    
     // MARK: - Body
     
     var body: some View {
@@ -49,6 +52,12 @@ struct SessionCompleteView: View {
                     statisticsCard
                         .padding(.horizontal, 20)
                     
+                    // Review待删除照片卡片
+                    if viewModel.pendingDeletionCount > 0 {
+                        reviewDeletionsCard
+                            .padding(.horizontal, 20)
+                    }
+                    
                     // 详细信息
                     detailsSection
                         .padding(.horizontal, 20)
@@ -75,6 +84,9 @@ struct SessionCompleteView: View {
                 )
                 .ignoresSafeArea()
             )
+        }
+        .sheet(isPresented: $showReviewDeletions) {
+            ReviewDeletionsView(viewModel: viewModel)
         }
         .onAppear {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.2)) {
@@ -147,6 +159,67 @@ struct SessionCompleteView: View {
                 .fill(Color(.systemBackground))
                 .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
         )
+    }
+    
+    // MARK: - Review Deletions Card
+    
+    private var reviewDeletionsCard: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.orange)
+                    .font(.title3)
+                Text(L10n.ReviewDeletions.cardTitle)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+            }
+            
+            VStack(spacing: 12) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L10n.ReviewDeletions.willDeleteCount(viewModel.pendingDeletionCount))
+                            .font(.subheadline)
+                            .foregroundColor(.primary)
+                        
+                        if viewModel.estimatedStorageToFree > 0 {
+                            Text(L10n.ReviewDeletions.storageToFree(viewModel.formattedStorageToFree))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    Spacer()
+                }
+                
+                Button(action: {
+                    showReviewDeletions = true
+                }) {
+                    HStack {
+                        Image(systemName: "eye.fill")
+                            .font(.body)
+                        Text(L10n.Button.reviewDeletions)
+                            .font(.headline)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        LinearGradient(
+                            colors: [.orange, .red],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(12)
+                }
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 15)
+                    .fill(Color.orange.opacity(0.05))
+            )
+        }
+        .padding(.top, 5)
     }
     
     // MARK: - Details Section

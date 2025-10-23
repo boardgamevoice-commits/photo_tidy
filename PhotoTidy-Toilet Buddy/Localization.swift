@@ -55,6 +55,7 @@ struct L10n {
         static let skipAllFailed = "button.skip_all_failed".localized
         static let confirmDeleteAndStart = "button.confirm_delete_and_start".localized
         static let clear = "button.clear".localized
+        static let reviewDeletions = "button.review_deletions".localized
     }
     
     // MARK: - Loading
@@ -155,6 +156,26 @@ struct L10n {
         
         static func willDeleteCount(_ count: Int) -> String {
             "session.complete.will_delete_count".localized(count)
+        }
+    }
+    
+    // MARK: - Review Deletions
+    
+    struct ReviewDeletions {
+        static let title = "review_deletions.title".localized
+        static let cardTitle = "review_deletions.card_title".localized
+        static let noPhotos = "review_deletions.no_photos".localized
+        static let allRestored = "review_deletions.all_restored".localized
+        static let tapToRestore = "review_deletions.tap_to_restore".localized
+        static let cancelAll = "review_deletions.cancel_all".localized
+        static let complete = "review_deletions.complete".localized
+        
+        static func willDeleteCount(_ count: Int) -> String {
+            "review_deletions.will_delete_count".localized(count)
+        }
+        
+        static func storageToFree(_ storage: String) -> String {
+            "review_deletions.storage_to_free".localized(storage)
         }
     }
     
