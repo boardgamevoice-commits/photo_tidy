@@ -79,8 +79,8 @@ func initializeAdMob() {
 
 ```swift
 #if DEBUG
-private let interstitialAdUnitID = "ca-app-pub-3940256099942544/4411468910"  // 测试ID
-private let rewardedAdUnitID = "ca-app-pub-3940256099942544/1712485313"      // 测试ID
+private let interstitialAdUnitID = "ca-app-pub-2034595640300550/4965494634"  // 正式ID
+private let rewardedAdUnitID = "ca-app-pub-2034595640300550/4366728831"      // 正式ID
 #else
 private let interstitialAdUnitID = "ca-app-pub-2034595640300550/4965494634"  // 真实ID
 private let rewardedAdUnitID = "ca-app-pub-2034595640300550/XXXXXXXXXX"      // 真实ID（待更新）

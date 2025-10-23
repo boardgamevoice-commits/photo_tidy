@@ -42,8 +42,8 @@ class AdManager: NSObject {
 ```
 
 **广告 ID (测试)**:
-- App ID: `ca-app-pub-3940256099942544~1458002511`
-- Interstitial Unit ID: `ca-app-pub-3940256099942544/4411468910`
+- App ID: `ca-app-pub-2034595640300550~4044769988`
+- Interstitial Unit ID: `ca-app-pub-2034595640300550/4965494634`
 
 **⚠️ 重要**: 发布前必须替换为真实的 Ad Unit ID！
 

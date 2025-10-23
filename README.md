@@ -41,8 +41,8 @@ The app includes the following privacy permissions in `Info.plist`:
 
 The project includes placeholder AdMob IDs for testing:
 
-- **App ID**: `ca-app-pub-3940256099942544~1458002511` (Test ID)
-- **Interstitial Ad Unit ID**: `ca-app-pub-3940256099942544/4411468910` (Test ID)
+- **App ID**: `ca-app-pub-2034595640300550~4044769988` (Production ID)
+- **Interstitial Ad Unit ID**: `ca-app-pub-2034595640300550/4965494634` (Production ID)
 
 **⚠️ IMPORTANT**: Replace these placeholder IDs with your actual AdMob IDs before releasing to production!
 

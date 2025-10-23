@@ -32,7 +32,7 @@
 - ✅ 照片库权限已配置
 - ✅ 权限描述: "Photo Tidy - 马桶伴侣需要访问您的相册，以便随机选取照片供您审阅和删除。所有操作均在本地进行。"
 - ✅ App 显示名称: "Photo Tidy"
-- ✅ AdMob App ID: ca-app-pub-3940256099942544~1458002511 (测试 ID)
+- ✅ AdMob App ID: ca-app-pub-2034595640300550~4044769988 (正式 ID)
 
 **位置**: 
 - 根目录: `/Info.plist`
@@ -76,12 +76,12 @@
 
 **App ID** (Info.plist):
 ```
-ca-app-pub-3940256099942544~1458002511
+ca-app-pub-2034595640300550~4044769988
 ```
 
 **Interstitial Ad Unit ID** (AdManager.swift):
 ```
-ca-app-pub-3940256099942544/4411468910
+ca-app-pub-2034595640300550/4965494634
 ```
 
 **状态**: ✅ 使用 Google 测试 ID

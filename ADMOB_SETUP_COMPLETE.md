@@ -97,8 +97,8 @@ AdMob SDK 初始化完成
 
 ```swift
 #if DEBUG
-private let interstitialAdUnitID = "ca-app-pub-3940256099942544/4411468910"  // 测试ID
-private let rewardedAdUnitID = "ca-app-pub-3940256099942544/1712485313"      // 测试ID
+private let interstitialAdUnitID = "ca-app-pub-2034595640300550/4965494634"  // 正式ID
+private let rewardedAdUnitID = "ca-app-pub-2034595640300550/4366728831"      // 正式ID
 #else
 private let interstitialAdUnitID = "ca-app-pub-2034595640300550/4965494634"  // 真实ID
 private let rewardedAdUnitID = "ca-app-pub-2034595640300550/4366728831"      // 真实ID
@@ -172,8 +172,8 @@ private let rewardedAdUnitID = "ca-app-pub-2034595640300550/4366728831"      // 
 **解决方法**：
 ```swift
 // 在 AdManager.swift 临时切换为测试ID
-private let interstitialAdUnitID = "ca-app-pub-3940256099942544/4411468910"
-private let rewardedAdUnitID = "ca-app-pub-3940256099942544/1712485313"
+private let interstitialAdUnitID = "ca-app-pub-2034595640300550/4965494634"
+private let rewardedAdUnitID = "ca-app-pub-2034595640300550/4366728831"
 ```
 
 测试ID能保证100%填充率，用于验证代码逻辑。
