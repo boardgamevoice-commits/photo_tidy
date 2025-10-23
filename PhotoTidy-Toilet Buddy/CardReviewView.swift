@@ -11,6 +11,164 @@ import PhotosUI
 import AVFoundation
 import AVKit
 
+/// 分享结果处理
+class ShareResultHandler: ObservableObject {
+    @Published var showSuccessToast: Bool = false
+    @Published var showErrorAlert: Bool = false
+    @Published var errorMessage: String = ""
+    
+    func handleShareResult(completed: Bool, error: Error?) {
+        if let error = error {
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+        } else if completed {
+            showSuccessToast = true
+        }
+    }
+}
+
+/// 系统分享面板的SwiftUI封装
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    let excludedActivityTypes: [UIActivity.ActivityType]?
+    
+    init(items: [Any], excludedActivityTypes: [UIActivity.ActivityType]? = nil) {
+        self.items = items
+        self.excludedActivityTypes = excludedActivityTypes
+    }
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let activityViewController = UIActivityViewController(
+            activityItems: items,
+            applicationActivities: nil
+        )
+        
+        if let excludedActivityTypes = excludedActivityTypes {
+            activityViewController.excludedActivityTypes = excludedActivityTypes
+        }
+        
+        // 设置完成回调
+        activityViewController.completionWithItemsHandler = { activityType, completed, returnedItems, error in
+            if let error = error {
+                print("❌ 分享失败: \(error.localizedDescription)")
+            } else if completed {
+                print("✅ 分享成功: \(activityType?.rawValue ?? "未知")")
+            } else {
+                print("ℹ️ 分享已取消")
+            }
+        }
+        
+        return activityViewController
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
+        // 不需要更新
+    }
+}
+
+/// 分享数据准备器
+class ShareDataPreparer {
+    
+    /// 准备当前照片的分享数据
+    /// - Parameter photo: 当前照片对象
+    /// - Returns: 分享数据数组
+    static func prepareShareData(from photo: TidyPhoto) async -> [Any] {
+        var shareItems: [Any] = []
+        
+        let asset = photo.asset
+        
+        switch asset.mediaType {
+        case .image:
+            if asset.mediaSubtypes.contains(.photoLive) {
+                // Live Photo
+                if let livePhoto = await loadLivePhotoForSharing(asset: asset) {
+                    shareItems.append(livePhoto)
+                    print("📤 准备分享 Live Photo")
+                }
+            } else {
+                // 普通照片
+                if let image = await loadImageForSharing(asset: asset) {
+                    shareItems.append(image)
+                    print("📤 准备分享普通照片")
+                }
+            }
+            
+        case .video:
+            // 视频
+            if let videoURL = await loadVideoForSharing(asset: asset) {
+                shareItems.append(videoURL)
+                print("📤 准备分享视频文件")
+            }
+            
+        default:
+            print("⚠️ 不支持的媒体类型: \(asset.mediaType.rawValue)")
+        }
+        
+        return shareItems
+    }
+    
+    /// 为分享加载图片
+    private static func loadImageForSharing(asset: PHAsset) async -> UIImage? {
+        return await withCheckedContinuation { continuation in
+            let options = PHImageRequestOptions()
+            options.deliveryMode = .highQualityFormat
+            options.isNetworkAccessAllowed = true
+            options.isSynchronous = false
+            
+            let targetSize = CGSize(width: 2000, height: 2000)
+            
+            PHImageManager.default().requestImage(
+                for: asset,
+                targetSize: targetSize,
+                contentMode: .aspectFit,
+                options: options
+            ) { image, _ in
+                continuation.resume(returning: image)
+            }
+        }
+    }
+    
+    /// 为分享加载 Live Photo
+    private static func loadLivePhotoForSharing(asset: PHAsset) async -> PHLivePhoto? {
+        return await withCheckedContinuation { continuation in
+            let options = PHLivePhotoRequestOptions()
+            options.deliveryMode = .highQualityFormat
+            options.isNetworkAccessAllowed = true
+            
+            let targetSize = CGSize(width: 2000, height: 2000)
+            
+            PHImageManager.default().requestLivePhoto(
+                for: asset,
+                targetSize: targetSize,
+                contentMode: .aspectFit,
+                options: options
+            ) { livePhoto, _ in
+                continuation.resume(returning: livePhoto)
+            }
+        }
+    }
+    
+    /// 为分享加载视频
+    private static func loadVideoForSharing(asset: PHAsset) async -> URL? {
+        return await withCheckedContinuation { continuation in
+            let options = PHVideoRequestOptions()
+            options.deliveryMode = .highQualityFormat
+            options.isNetworkAccessAllowed = true
+            
+            PHImageManager.default().requestAVAsset(
+                forVideo: asset,
+                options: options
+            ) { avAsset, _, _ in
+                if let urlAsset = avAsset as? AVURLAsset {
+                    continuation.resume(returning: urlAsset.url)
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+}
+
 /// 核心照片审阅视图 - 卡片式交互
 struct CardReviewView: View {
     @ObservedObject var viewModel: TidySessionViewModel
@@ -66,7 +224,6 @@ struct CardReviewView: View {
     // 分享功能
     @State private var showShareSheet: Bool = false
     @State private var shareItems: [Any] = []
-    @StateObject private var shareResultHandler = ShareResultHandler()
     
     // MARK: - Constants
     
@@ -112,7 +269,7 @@ struct CardReviewView: View {
                     
                     // 照片卡片 - 占据主要空间
                     photoCardView
-                        .padding(.horizontal, 10)
+                        .padding(.horizontal, 5)
                         .padding(.vertical, 15)
                     
                     // 底部决策按钮 (F-06)
@@ -149,11 +306,6 @@ struct CardReviewView: View {
         }
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(items: shareItems)
-        }
-        .alert("分享失败", isPresented: $shareResultHandler.showErrorAlert) {
-            Button("确定", role: .cancel) { }
-        } message: {
-            Text(shareResultHandler.errorMessage)
         }
     }
     
@@ -645,7 +797,7 @@ struct CardReviewView: View {
     // MARK: - Bottom Action Buttons (导航 + 删除/恢复)
     
     private var bottomActionButtons: some View {
-        HStack(spacing: 30) {
+        HStack(spacing: 20) {
             // 上一张按钮（左侧）
             Button(action: {
                 withAnimation(.spring(response: 0.3)) {
@@ -662,7 +814,7 @@ struct CardReviewView: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 65, height: 65)
+                            .frame(width: 60, height: 60)
                             .shadow(color: .blue.opacity(0.4), radius: 10, x: 0, y: 5)
                         
                         Image(systemName: "chevron.left")
@@ -724,7 +876,7 @@ struct CardReviewView: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 65, height: 65)
+                            .frame(width: 60, height: 60)
                             .shadow(color: .green.opacity(0.4), radius: 10, x: 0, y: 5)
                         
                         Image(systemName: "square.and.arrow.up")
@@ -756,7 +908,7 @@ struct CardReviewView: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 65, height: 65)
+                            .frame(width: 60, height: 60)
                             .shadow(color: .purple.opacity(0.4), radius: 10, x: 0, y: 5)
                         
                         Image(systemName: "chevron.right")
@@ -774,7 +926,7 @@ struct CardReviewView: View {
             .disabled(!viewModel.canMoveNext)
             .opacity(viewModel.canMoveNext ? 1.0 : 0.4)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 15)
     }
     
     /// 当前照片是否已标记删除
@@ -849,17 +1001,10 @@ struct CardReviewView: View {
         
         // 异步准备分享数据
         Task { @MainActor in
-            let items = await ShareDataPreparer.prepareShareData(
-                for: currentPhoto,
-                currentImage: currentImage,
-                currentLivePhoto: currentLivePhoto,
-                videoPlayer: videoPlayer
-            )
+            let items = await ShareDataPreparer.prepareShareData(from: currentPhoto)
             
             if items.isEmpty {
                 print("❌ 无法准备分享数据")
-                shareResultHandler.errorMessage = "无法准备分享内容，请重试"
-                shareResultHandler.showErrorAlert = true
                 return
             }
             
@@ -1344,4 +1489,5 @@ struct CardReviewView: View {
 #Preview {
     CardReviewView(viewModel: TidySessionViewModel())
 }
+
 

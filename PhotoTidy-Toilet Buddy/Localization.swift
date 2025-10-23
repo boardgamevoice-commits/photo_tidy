@@ -54,6 +54,7 @@ struct L10n {
         static let continueTrying = "button.continue_trying".localized
         static let skipAllFailed = "button.skip_all_failed".localized
         static let confirmDeleteAndStart = "button.confirm_delete_and_start".localized
+        static let share = "button.share".localized
         static let clear = "button.clear".localized
         static let reviewDeletions = "button.review_deletions".localized
     }

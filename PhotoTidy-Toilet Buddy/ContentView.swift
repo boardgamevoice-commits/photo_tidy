@@ -13,6 +13,11 @@ struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     
+    // 判断是否应该应用padding（CardReviewPage不需要padding）
+    private var shouldApplyPadding: Bool {
+        return !viewModel.isSessionActive
+    }
+    
     var body: some View {
         Group {
             if viewModel.isLoading {
@@ -24,12 +29,13 @@ struct ContentView: View {
                 // 会话设置界面
                 SessionSetupView(viewModel: viewModel)
             } else {
-                // 会话进行中 - 使用卡片审阅视图
+                // 会话进行中 - 使用卡片审阅视图（全屏模式）
                 CardReviewView(viewModel: viewModel)
+                    .ignoresSafeArea(.all, edges: .all) // 忽略所有安全区域，实现全屏
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, isIPad ? 40 : 16)
+        .padding(.horizontal, shouldApplyPadding ? (isIPad ? 40 : 16) : 0)
         .alert(L10n.Error.title, isPresented: Binding.constant(viewModel.errorMessage != nil)) {
             Button(L10n.Button.confirm) {
                 viewModel.errorMessage = nil
