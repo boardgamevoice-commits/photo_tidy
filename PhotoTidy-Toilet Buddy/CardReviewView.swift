@@ -11,6 +11,164 @@ import PhotosUI
 import AVFoundation
 import AVKit
 
+// MARK: - 预加载任务管理器
+
+/// 预加载任务优先级
+enum PreloadPriority: Int, CaseIterable {
+    case high = 0    // 当前+1
+    case medium = 1  // 当前+2
+    case low = 2     // 其他
+    
+    var description: String {
+        switch self {
+        case .high: return "高优先级"
+        case .medium: return "中优先级"
+        case .low: return "低优先级"
+        }
+    }
+}
+
+/// 预加载任务状态
+enum PreloadTaskStatus {
+    case pending     // 等待中
+    case running     // 执行中
+    case completed   // 已完成
+    case failed      // 失败
+    case cancelled   // 已取消
+}
+
+/// 预加载任务信息
+struct PreloadTask {
+    let index: Int
+    let priority: PreloadPriority
+    var status: PreloadTaskStatus
+    let task: Task<Void, Never>
+    let startTime: Date
+    
+    init(index: Int, priority: PreloadPriority, task: Task<Void, Never>) {
+        self.index = index
+        self.priority = priority
+        self.status = .pending
+        self.task = task
+        self.startTime = Date()
+    }
+}
+
+/// 预加载任务管理器
+@MainActor
+class PreloadTaskManager: ObservableObject {
+    private var tasks: [Int: PreloadTask] = [:]
+    private let maxConcurrentTasks = 3
+    private var runningTasks: Set<Int> = []
+    
+    /// 添加预加载任务
+    func addTask(index: Int, priority: PreloadPriority, task: Task<Void, Never>) {
+        // 取消已存在的任务
+        cancelTask(at: index)
+        
+        let preloadTask = PreloadTask(index: index, priority: priority, task: task)
+        tasks[index] = preloadTask
+        
+        // 尝试启动任务
+        tryStartNextTask()
+        
+        AppLogger.shared.debug("添加预加载任务: 索引=\(index), 优先级=\(priority.description)", category: .photo)
+    }
+    
+    /// 取消指定索引的任务
+    func cancelTask(at index: Int) {
+        if let existingTask = tasks[index] {
+            existingTask.task.cancel()
+            tasks.removeValue(forKey: index)
+            runningTasks.remove(index)
+            AppLogger.shared.debug("取消预加载任务: 索引=\(index)", category: .photo)
+        }
+    }
+    
+    /// 更新任务状态
+    func updateTaskStatus(at index: Int, status: PreloadTaskStatus) {
+        if var task = tasks[index] {
+            task.status = status
+            
+            switch status {
+            case .running:
+                runningTasks.insert(index)
+            case .completed, .failed, .cancelled:
+                runningTasks.remove(index)
+                tasks.removeValue(forKey: index)
+                // 尝试启动下一个任务
+                tryStartNextTask()
+            default:
+                break
+            }
+            
+            AppLogger.shared.debug("任务状态更新: 索引=\(index), 状态=\(status)", category: .photo)
+        }
+    }
+    
+    /// 尝试启动下一个任务
+    private func tryStartNextTask() {
+        // 如果已达到最大并发数，不启动新任务
+        guard runningTasks.count < maxConcurrentTasks else {
+            return
+        }
+        
+        // 按优先级排序待启动的任务
+        let pendingTasks = tasks.values
+            .filter { $0.status == .pending }
+            .sorted { $0.priority.rawValue < $1.priority.rawValue }
+        
+        for task in pendingTasks {
+            if runningTasks.count >= maxConcurrentTasks {
+                break
+            }
+            
+            // 启动任务
+            runningTasks.insert(task.index)
+            updateTaskStatus(at: task.index, status: .running)
+            
+            // 异步执行任务
+            Task {
+                await executeTask(task)
+            }
+        }
+    }
+    
+    /// 执行任务
+    private func executeTask(_ preloadTask: PreloadTask) async {
+        await preloadTask.task.value
+        updateTaskStatus(at: preloadTask.index, status: .completed)
+    }
+    
+    /// 取消所有任务
+    func cancelAllTasks() {
+        for (index, task) in tasks {
+            task.task.cancel()
+            AppLogger.shared.debug("取消所有预加载任务: 索引=\(index)", category: .photo)
+        }
+        tasks.removeAll()
+        runningTasks.removeAll()
+    }
+    
+    /// 获取任务统计信息
+    func getTaskStats() -> (pending: Int, running: Int, total: Int) {
+        let pending = tasks.values.filter { $0.status == .pending }.count
+        let running = runningTasks.count
+        let total = tasks.count
+        return (pending, running, total)
+    }
+    
+    /// 检查是否有指定索引的任务
+    func hasTask(at index: Int) -> Bool {
+        return tasks[index] != nil
+    }
+    
+    /// 检查是否有指定索引的缓存
+    func hasCachedImage(at index: Int) -> Bool {
+        return tasks[index]?.status == .completed
+    }
+}
+
 /// 分享结果处理
 class ShareResultHandler: ObservableObject {
     @Published var showSuccessToast: Bool = false
@@ -50,11 +208,11 @@ struct ShareSheet: UIViewControllerRepresentable {
         // 设置完成回调
         activityViewController.completionWithItemsHandler = { activityType, completed, returnedItems, error in
             if let error = error {
-                print("❌ 分享失败: \(error.localizedDescription)")
+                AppLogger.shared.error("分享失败", error: error, category: .ui)
             } else if completed {
-                print("✅ 分享成功: \(activityType?.rawValue ?? "未知")")
+                AppLogger.shared.info("分享成功: \(activityType?.rawValue ?? "未知")", category: .ui)
             } else {
-                print("ℹ️ 分享已取消")
+                AppLogger.shared.info("分享已取消", category: .ui)
             }
         }
         
@@ -83,13 +241,13 @@ class ShareDataPreparer {
                 // Live Photo
                 if let livePhoto = await loadLivePhotoForSharing(asset: asset) {
                     shareItems.append(livePhoto)
-                    print("📤 准备分享 Live Photo")
+                    AppLogger.shared.debug("准备分享 Live Photo", category: .media)
                 }
             } else {
                 // 普通照片
                 if let image = await loadImageForSharing(asset: asset) {
                     shareItems.append(image)
-                    print("📤 准备分享普通照片")
+                    AppLogger.shared.debug("准备分享普通照片", category: .photo)
                 }
             }
             
@@ -97,11 +255,11 @@ class ShareDataPreparer {
             // 视频
             if let videoURL = await loadVideoForSharing(asset: asset) {
                 shareItems.append(videoURL)
-                print("📤 准备分享视频文件")
+                AppLogger.shared.debug("准备分享视频文件", category: .media)
             }
             
         default:
-            print("⚠️ 不支持的媒体类型: \(asset.mediaType.rawValue)")
+            AppLogger.shared.warning("不支持的媒体类型: \(asset.mediaType.rawValue)", category: .media)
         }
         
         return shareItems
@@ -214,6 +372,9 @@ struct CardReviewView: View {
     @State private var preloadedImages: [Int: UIImage] = [:]
     @State private var preloadTasks: [Int: Task<Void, Never>] = [:]
     
+    // 任务管理
+    @State private var taskManager = PreloadTaskManager()
+    
     // 错误处理
     @State private var consecutiveFailures: Int = 0
     @State private var showBatchSkipAlert: Bool = false
@@ -313,46 +474,28 @@ struct CardReviewView: View {
     
     private var topStatusBar: some View {
         VStack(spacing: 12) {
-            // 进度条和智能按钮（关闭/完成）
+            // 进度条和取消按钮
             HStack {
-                // 智能按钮：最后一张显示"完成"，否则显示"关闭"
+                // 取消按钮（始终显示）
                 Button(action: {
                     viewModel.endSession()
                     dismiss()
                 }) {
-                    if isLastPhoto {
-                        // 完成按钮（绿色，大号）
-                        HStack(spacing: 8) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.title)
-                            Text(L10n.Button.done)
-                                .font(.headline)
-                                .fontWeight(.bold)
-                        }
-                        .foregroundColor(.green)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.green.opacity(0.2))
-                        )
-                    } else {
-                        // 关闭按钮（灰色，带文字）
-                        HStack(spacing: 8) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.title2)
-                            Text(L10n.Button.cancel)
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                        }
-                        .foregroundColor(.white.opacity(0.9))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(Color.white.opacity(0.15))
-                        )
+                    // 关闭按钮（灰色，带文字）
+                    HStack(spacing: 8) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                        Text(L10n.Button.cancel)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
                     }
+                    .foregroundColor(.white.opacity(0.9))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.white.opacity(0.15))
+                    )
                 }
                 
                 Spacer()
@@ -892,10 +1035,17 @@ struct CardReviewView: View {
             }
             .buttonStyle(ScaleButtonStyle())
             
-            // 下一张按钮（右侧）
+            // 下一张/完成按钮（右侧）
             Button(action: {
-                withAnimation(.spring(response: 0.3)) {
-                    viewModel.moveToNextPhoto()
+                if isLastPhoto {
+                    // 最后一张时，点击完成按钮
+                    viewModel.endSession()
+                    dismiss()
+                } else {
+                    // 其他时候，点击下一张按钮
+                    withAnimation(.spring(response: 0.3)) {
+                        viewModel.moveToNextPhoto()
+                    }
                 }
             }) {
                 VStack(spacing: 8) {
@@ -903,28 +1053,26 @@ struct CardReviewView: View {
                         Circle()
                             .fill(
                                 LinearGradient(
-                                    colors: [.purple, .purple.opacity(0.8)],
+                                    colors: isLastPhoto ? [.green, .green.opacity(0.8)] : [.purple, .purple.opacity(0.8)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
                             .frame(width: 60, height: 60)
-                            .shadow(color: .purple.opacity(0.4), radius: 10, x: 0, y: 5)
+                            .shadow(color: (isLastPhoto ? Color.green : Color.purple).opacity(0.4), radius: 10, x: 0, y: 5)
                         
-                        Image(systemName: "chevron.right")
+                        Image(systemName: isLastPhoto ? "checkmark" : "chevron.right")
                             .font(.system(size: 28, weight: .semibold))
                             .foregroundColor(.white)
                     }
                     
-                    Text(L10n.Button.next)
+                    Text(isLastPhoto ? L10n.Button.done : L10n.Button.next)
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
                 }
             }
             .buttonStyle(ScaleButtonStyle())
-            .disabled(!viewModel.canMoveNext)
-            .opacity(viewModel.canMoveNext ? 1.0 : 0.4)
         }
         .padding(.horizontal, 15)
     }
@@ -991,7 +1139,7 @@ struct CardReviewView: View {
     /// 处理分享操作
     private func handleShareAction() {
         guard let currentPhoto = viewModel.currentPhoto else {
-            print("⚠️ 没有当前照片可以分享")
+            AppLogger.shared.warning("没有当前照片可以分享", category: .ui)
             return
         }
         
@@ -1004,13 +1152,13 @@ struct CardReviewView: View {
             let items = await ShareDataPreparer.prepareShareData(from: currentPhoto)
             
             if items.isEmpty {
-                print("❌ 无法准备分享数据")
+                AppLogger.shared.error("无法准备分享数据", category: .ui)
                 return
             }
             
             shareItems = items
             showShareSheet = true
-            print("✅ 分享数据准备完成，项目数量: \(items.count)")
+            AppLogger.shared.info("分享数据准备完成，项目数量: \(items.count)", category: .ui)
         }
     }
     
@@ -1204,7 +1352,7 @@ struct CardReviewView: View {
     private func loadRegularPhoto(asset: PHAsset) {
         // 检查是否已经预加载
         if let cachedImage = preloadedImages[viewModel.currentIndex] {
-            print("📸 使用预加载缓存，索引: \(viewModel.currentIndex)")
+            AppLogger.shared.debug("使用预加载缓存，索引: \(viewModel.currentIndex)", category: .photo)
             withAnimation(.easeIn(duration: 0.2)) {
                 self.currentImage = cachedImage
                 self.isLoadingImage = false
@@ -1228,7 +1376,7 @@ struct CardReviewView: View {
                 )
                 
                 guard !Task.isCancelled else {
-                    print("⚠️ 加载任务已取消")
+                    AppLogger.shared.debug("加载任务已取消", category: .photo)
                     return
                 }
                 
@@ -1238,13 +1386,13 @@ struct CardReviewView: View {
                         self.isLoadingImage = false
                         self.consecutiveFailures = 0
                     }
-                    print("✅ 照片加载成功，索引: \(viewModel.currentIndex)")
+                    AppLogger.shared.info("照片加载成功，索引: \(viewModel.currentIndex)", category: .photo)
                 } else {
                     handleLoadFailure()
                 }
             } catch {
                 guard !Task.isCancelled else { return }
-                print("❌ 照片加载失败: \(error.localizedDescription)")
+                AppLogger.shared.error("照片加载失败", error: error, category: .photo)
                 handleLoadFailure()
             }
         }
@@ -1267,7 +1415,7 @@ struct CardReviewView: View {
                 )
                 
                 guard !Task.isCancelled else {
-                    print("⚠️ Live Photo 加载任务已取消")
+                    AppLogger.shared.debug("Live Photo 加载任务已取消", category: .media)
                     return
                 }
                 
@@ -1277,13 +1425,13 @@ struct CardReviewView: View {
                         self.isLoadingImage = false
                         self.consecutiveFailures = 0
                     }
-                    print("✅ Live Photo 加载成功，索引: \(viewModel.currentIndex)")
+                    AppLogger.shared.info("Live Photo 加载成功，索引: \(viewModel.currentIndex)", category: .media)
                 } else {
                     handleLoadFailure()
                 }
             } catch {
                 guard !Task.isCancelled else { return }
-                print("❌ Live Photo 加载失败: \(error.localizedDescription)")
+                AppLogger.shared.error("Live Photo 加载失败", error: error, category: .media)
                 handleLoadFailure()
             }
         }
@@ -1297,7 +1445,7 @@ struct CardReviewView: View {
         if let oldPlayer = videoPlayer {
             oldPlayer.pause()
             oldPlayer.replaceCurrentItem(with: nil)
-            print("🎬 已清理旧视频播放器")
+            AppLogger.shared.debug("已清理旧视频播放器", category: .media)
         }
         
         loadTask = Task { @MainActor in
@@ -1305,7 +1453,7 @@ struct CardReviewView: View {
                 let playerItem = try await viewModel.loadVideoAsync(asset: asset)
                 
                 guard !Task.isCancelled else {
-                    print("⚠️ 视频加载任务已取消")
+                    AppLogger.shared.debug("视频加载任务已取消", category: .media)
                     return
                 }
                 
@@ -1316,13 +1464,13 @@ struct CardReviewView: View {
                         self.isLoadingImage = false
                         self.consecutiveFailures = 0
                     }
-                    print("✅ 视频加载成功，索引: \(viewModel.currentIndex)")
+                    AppLogger.shared.info("视频加载成功，索引: \(viewModel.currentIndex)", category: .media)
                 } else {
                     handleLoadFailure()
                 }
             } catch {
                 guard !Task.isCancelled else { return }
-                print("❌ 视频加载失败: \(error.localizedDescription)")
+                AppLogger.shared.error("视频加载失败", error: error, category: .media)
                 handleLoadFailure()
             }
         }
@@ -1346,31 +1494,45 @@ struct CardReviewView: View {
         let currentIndex = viewModel.currentIndex
         let totalPhotos = viewModel.totalPhotos
         
-        // 预加载后面 2 张照片
-        let indicesToPreload = [currentIndex + 1, currentIndex + 2]
+        // 预加载后面 2 张照片，使用优先级管理
+        let preloadIndices = [
+            (index: currentIndex + 1, priority: PreloadPriority.high),
+            (index: currentIndex + 2, priority: PreloadPriority.medium)
+        ]
         
-        for index in indicesToPreload {
+        for (index, priority) in preloadIndices {
             guard index < totalPhotos,
                   preloadedImages[index] == nil,
-                  preloadTasks[index] == nil else {
+                  !taskManager.hasTask(at: index) else {
                 continue
             }
             
-            // 启动预加载任务
+            // 创建预加载任务
             let task = Task { @MainActor in
                 if let image = await viewModel.loadPhotoAsync(at: index, targetSize: optimalThumbnailSize) {
-                    guard !Task.isCancelled else { return }
+                    guard !Task.isCancelled else { 
+                        taskManager.updateTaskStatus(at: index, status: .cancelled)
+                        return 
+                    }
                     preloadedImages[index] = image
-                    print("📦 预加载完成，索引: \(index)")
+                    taskManager.updateTaskStatus(at: index, status: .completed)
+                    AppLogger.shared.debug("预加载完成，索引: \(index), 优先级: \(priority.description)", category: .photo)
+                } else {
+                    taskManager.updateTaskStatus(at: index, status: .failed)
+                    AppLogger.shared.warning("预加载失败，索引: \(index)", category: .photo)
                 }
-                preloadTasks[index] = nil
             }
             
-            preloadTasks[index] = task
+            // 添加到任务管理器
+            taskManager.addTask(index: index, priority: priority, task: task)
         }
         
         // 清理过期的缓存（距离当前位置超过 3 张）
         cleanupOldCache(currentIndex: currentIndex)
+        
+        // 记录任务统计
+        let stats = taskManager.getTaskStats()
+        AppLogger.shared.debug("预加载任务统计: 等待=\(stats.pending), 运行=\(stats.running), 总计=\(stats.total)", category: .photo)
     }
     
     /// 清理过期的缓存
@@ -1378,27 +1540,24 @@ struct CardReviewView: View {
         let keysToRemove = preloadedImages.keys.filter { abs($0 - currentIndex) > 3 }
         for key in keysToRemove {
             preloadedImages.removeValue(forKey: key)
-            preloadTasks[key]?.cancel()
-            preloadTasks.removeValue(forKey: key)
+            taskManager.cancelTask(at: key)
         }
         
         if !keysToRemove.isEmpty {
-            print("🧹 清理过期缓存: \(keysToRemove.count) 张")
+            AppLogger.shared.debug("清理过期缓存: \(keysToRemove.count) 张", category: .photo)
         }
     }
     
     /// 清理所有任务和资源
     private func cleanupTasks() {
-        print("🧹 清理所有加载任务和资源")
+        AppLogger.shared.debug("清理所有加载任务和资源", category: .photo)
         
         // 取消所有异步任务
         loadTask?.cancel()
         animationTask?.cancel()
         
-        for (_, task) in preloadTasks {
-            task.cancel()
-        }
-        preloadTasks.removeAll()
+        // 使用任务管理器清理预加载任务
+        taskManager.cancelAllTasks()
         preloadedImages.removeAll()
         
         // 清理视频播放器资源
@@ -1406,7 +1565,7 @@ struct CardReviewView: View {
             player.pause()
             player.replaceCurrentItem(with: nil)
             videoPlayer = nil
-            print("🎬 已清理视频播放器资源")
+            AppLogger.shared.debug("已清理视频播放器资源", category: .media)
         }
         
         // 清理其他媒体资源
@@ -1421,7 +1580,7 @@ struct CardReviewView: View {
         isLoadingImage = false
         consecutiveFailures += 1
         
-        print("⚠️ 加载失败次数: \(consecutiveFailures)")
+        AppLogger.shared.warning("加载失败次数: \(consecutiveFailures)", category: .photo)
         
         // 连续失败 3 次，显示批量跳过选项
         if consecutiveFailures >= 3 {
@@ -1431,7 +1590,7 @@ struct CardReviewView: View {
     
     /// 跳过所有失败的照片
     private func skipFailedPhotos() {
-        print("⏭️ 跳过所有加载失败的照片")
+        AppLogger.shared.info("跳过所有加载失败的照片", category: .photo)
         
         // 简单策略：连续尝试加载下几张照片，直到成功
         Task { @MainActor in
@@ -1443,7 +1602,7 @@ struct CardReviewView: View {
                 
                 // 尝试加载
                 if let _ = try? await viewModel.loadCurrentPhotoAsync(targetSize: optimalThumbnailSize) {
-                    print("✅ 找到可加载的照片，索引: \(viewModel.currentIndex)")
+                    AppLogger.shared.info("找到可加载的照片，索引: \(viewModel.currentIndex)", category: .photo)
                     consecutiveFailures = 0
                     break
                 }
@@ -1452,7 +1611,7 @@ struct CardReviewView: View {
             }
             
             if attempts >= maxAttempts {
-                print("❌ 跳过失败，可能所有照片都无法加载")
+                AppLogger.shared.error("跳过失败，可能所有照片都无法加载", category: .photo)
                 viewModel.errorMessage = "无法加载更多照片，请检查相册权限。"
             }
         }
