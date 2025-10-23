@@ -184,14 +184,14 @@ class TidySessionViewModel: ObservableObject {
         
         print("验证参数：请求 \(count) 张，可用 \(availableCount) 张")
         
-        // 验证是否有足够的照片
+        // 验证是否有照片可用
         if availableCount == 0 {
             return (false, "没有符合条件的照片。\n请调整过滤设置或检查相册权限。")
         }
         
-        if count > availableCount {
-            return (false, "相册中只有 \(availableCount) 张符合条件的照片。\n请减少选择数量或调整过滤条件。")
-        }
+        // 如果可用照片数量少于请求数量，不阻止会话开始
+        // PhotoService 会自动使用所有可用的照片
+        // 在 startNewSession 中会显示友好提示
         
         return (true, nil)
     }
@@ -250,6 +250,11 @@ class TidySessionViewModel: ObservableObject {
             isLoading = false
             print("未找到照片")
             return
+        }
+        
+        // 如果实际获取的照片数量少于请求数量，记录日志（不阻止）
+        if assets.count < count {
+            print("📌 找到 \(assets.count) 张符合条件的照片，少于请求的 \(count) 张，将使用所有可用照片")
         }
         
         // 转换为 TidyPhoto

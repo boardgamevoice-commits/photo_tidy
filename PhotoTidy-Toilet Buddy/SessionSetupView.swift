@@ -115,11 +115,12 @@ struct SessionSetupView: View {
     // MARK: - Header Section
     
     private var headerSection: some View {
-        VStack(spacing: 15) {
+        HStack(spacing: 20) {
+            // 左侧图标
             Image(systemName: "photo.stack.fill")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 80, height: 80)
+                .frame(width: 70, height: 70)
                 .foregroundStyle(
                     LinearGradient(
                         colors: [.blue, .purple],
@@ -128,20 +129,21 @@ struct SessionSetupView: View {
                     )
                 )
             
-            Text(L10n.App.name)
-                .font(.system(size: 34, weight: .bold, design: .rounded))
+            // 右侧文本（垂直排列）
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.App.name)
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                
+                Text(L10n.App.tagline)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+            }
             
-            Text(L10n.App.subtitle)
-                .font(.title2)
-                .foregroundColor(.secondary)
-            
-            Text(L10n.App.tagline)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
+            Spacer()
         }
         .padding(.top, 20)
+        .padding(.horizontal, 5)
     }
     
     // MARK: - Rewarded Ad Section

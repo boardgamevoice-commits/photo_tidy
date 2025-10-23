@@ -34,7 +34,7 @@ enum AppLanguage: String, Codable, CaseIterable, Identifiable {
         case .chinese:
             return "character.textbox"
         case .english:
-            return "textformat.abc"
+            return "a.circle.fill"
         }
     }
     
