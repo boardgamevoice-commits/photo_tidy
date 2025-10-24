@@ -94,3 +94,6 @@ iOSInjectionProject/
 .DS_Store
 
 PhotoTidy-Toilet Buddy.xcarchive/
+
+# Local Netlify folder
+.netlify

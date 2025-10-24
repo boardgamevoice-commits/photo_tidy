@@ -163,9 +163,10 @@ struct SplashScreenView: View {
                 }
             }
             
-            // 执行权限检查
+            // 执行异步权限检查
             let photoService = PhotoService.shared
-            let hasPermission = photoService.hasPhotoLibraryAccess()
+            let permissionStatus = await photoService.checkAndRequestPermissions()
+            let hasPermission = permissionStatus == .authorized || permissionStatus == .limited
             
             await MainActor.run {
                 self.extractionProgress = hasPermission ? 1.0 : 0.0
