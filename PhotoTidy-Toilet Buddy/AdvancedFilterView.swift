@@ -462,6 +462,8 @@ struct AdvancedFilterView: View {
         let fetchOptions = PHFetchOptions()
         fetchOptions.predicate = PredicateBuilder.buildCombinedPredicate(from: filterConfig)
         
+        // 注意：位置信息过滤需要在后台线程中进行以避免主线程阻塞
+        
         // 执行查询（不加载实际数据）
         let fetchResult = PHAsset.fetchAssets(with: fetchOptions)
         

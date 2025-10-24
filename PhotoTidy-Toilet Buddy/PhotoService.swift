@@ -62,10 +62,24 @@ class PhotoService: NSObject {
         }
     }
     
-    /// 检查是否有照片库访问权限
+    /// 检查是否有照片库访问权限（同步版本）
     func hasPhotoLibraryAccess() -> Bool {
         let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
         return status == .authorized || status == .limited
+    }
+    
+    /// 异步检查权限状态（优化版本）
+    /// - Returns: 权限状态
+    func checkPermissionStatusAsync() async -> PHAuthorizationStatus {
+        let currentStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        
+        // 如果权限已确定，直接返回
+        if currentStatus != .notDetermined {
+            return currentStatus
+        }
+        
+        // 如果权限未确定，异步请求权限
+        return await PHPhotoLibrary.requestAuthorization(for: .readWrite)
     }
     
     /// 设置权限状态变化监听器
@@ -120,6 +134,9 @@ class PhotoService: NSObject {
                 
                 // 使用统一的 PredicateBuilder
                 fetchOptions.predicate = PredicateBuilder.buildCombinedPredicate(from: filterConfig)
+                
+                // 注意：PHFetchOptions 不支持直接预取元数据属性
+                // 元数据访问优化通过确保在后台线程进行来实现
                 
                 // 按创建日期降序排列（可选，用于调试）
                 fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
@@ -297,7 +314,6 @@ class PhotoService: NSObject {
     ) {
         let totalCount = assets.count
         var completedCount = 0
-        var hasError = false
         
         func deleteNextBatch() {
             let startIndex = completedCount
@@ -324,7 +340,6 @@ class PhotoService: NSObject {
                         }
                     } else {
                         AppLogger.shared.error("批次删除失败", error: error, category: .photo)
-                        hasError = true
                         completion(false, error)
                     }
                 }

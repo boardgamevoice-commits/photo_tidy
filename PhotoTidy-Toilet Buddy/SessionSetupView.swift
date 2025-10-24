@@ -153,11 +153,24 @@ struct SessionSetupView: View {
             AppLogger.shared.performance("SessionSetupView onAppear 开始")
             let startTime = Date()
             
+            // 第一层：立即执行的关键操作（UI渲染必需）
             loadUserPreferences()
             updateAdFreeStatus()
-            startAdStatusCheck()
-            startPreloading() // 新增：开始预加载
-            calculateTotalPhotoCount() // 新增：计算照片总数
+            
+            // 第二层：延迟执行的非关键操作（100ms后）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                startAdStatusCheck()
+            }
+            
+            // 第三层：延迟执行的重型操作（300ms后）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                startPreloading() // 预加载
+            }
+            
+            // 第四层：延迟执行的计算密集型操作（500ms后）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                calculateTotalPhotoCount() // 照片数量计算
+            }
             
             let duration = Date().timeIntervalSince(startTime)
             AppLogger.shared.performance("SessionSetupView onAppear 完成，耗时: \(String(format: "%.3f", duration))秒")
@@ -815,10 +828,30 @@ struct SessionSetupView: View {
     
     // MARK: - Preload Methods (预加载方法)
     
-    /// 开始预加载
+    /// 开始预加载（优化版本 - 异步启动）
     private func startPreloading() {
-        // 使用防抖处理，避免频繁重新加载
-        restartPreloading()
+        AppLogger.shared.performance("开始预加载流程")
+        
+        // 异步启动预加载，避免阻塞UI
+        Task {
+            // 在后台线程执行预加载检查
+            await performPreloadingCheck()
+        }
+    }
+    
+    /// 执行预加载检查（异步）
+    private func performPreloadingCheck() async {
+        // 使用异步权限检查，避免阻塞
+        let status = await PhotoService.shared.checkPermissionStatusAsync()
+        guard status == .authorized || status == .limited else {
+            AppLogger.shared.debug("权限不足，跳过预加载", category: .photo)
+            return
+        }
+        
+        // 回到主线程执行UI相关操作
+        await MainActor.run {
+            restartPreloading()
+        }
     }
     
     /// 重新开始预加载（带防抖和缓存检查）
@@ -876,10 +909,33 @@ struct SessionSetupView: View {
     
     /// 计算满足过滤条件的照片总数
     private func calculateTotalPhotoCount() {
+        AppLogger.shared.performance("开始照片数量计算")
+        
         // 取消之前的计算任务
         countCalculationTask?.cancel()
         
         countCalculationTask = Task {
+            // 先检查缓存，如果命中则立即返回
+            let cacheKey = PhotoCountCacheManager.generateCacheKey(from: filterConfig)
+            if let cachedCount = PhotoCountCacheManager.shared.getCachedCount(for: cacheKey) {
+                await MainActor.run {
+                    photoCountResult = .success(cachedCount)
+                    calculationProgress = 1.0
+                    AppLogger.shared.debug("使用缓存结果: \(cachedCount)张", category: .ui)
+                }
+                return
+            }
+            
+            // 使用异步权限检查，避免阻塞
+            let status = await PhotoService.shared.checkPermissionStatusAsync()
+            guard status == .authorized || status == .limited else {
+                await MainActor.run {
+                    photoCountResult = .error("权限不足")
+                    calculationProgress = 1.0
+                }
+                return
+            }
+            
             // 在后台线程开始计算
             await MainActor.run {
                 photoCountResult = .calculating
@@ -930,6 +986,8 @@ struct SessionSetupView: View {
         // 构建查询条件
         let fetchOptions = PHFetchOptions()
         fetchOptions.predicate = PredicateBuilder.buildCombinedPredicate(from: filterConfig)
+        
+        // 注意：位置信息过滤需要在后台线程中进行以避免主线程阻塞
         
         // 执行查询（不加载实际数据）
         let fetchResult = PHAsset.fetchAssets(with: fetchOptions)
