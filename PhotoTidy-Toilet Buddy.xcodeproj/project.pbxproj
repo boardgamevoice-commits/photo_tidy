@@ -27,13 +27,15 @@
 		L82BA282EC0FB4C9F9B24856 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = LB82761FD75C2438F9F83B30 /* EmptyStateView.swift */; };
 		LF276D1C9303F45D19691880 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = L2388FAA8EE2A41BA88B5140 /* Localization.swift */; };
 		NEW00001000000000000001 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00002000000000000001 /* Logger.swift */; };
+		NEW00020000000000000001 /* PhotoCountCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00021000000000000001 /* PhotoCountCacheManager.swift */; };
+		NEW00022000000000000001 /* PaginatedPhotoProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00023000000000000001 /* PaginatedPhotoProcessor.swift */; };
 		NEW00003000000000000001 /* PredicateBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00004000000000000001 /* PredicateBuilder.swift */; };
 		NEW00005000000000000001 /* LivePhotoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00006000000000000001 /* LivePhotoView.swift */; };
 		NEW00007000000000000001 /* VideoPlayerControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00008000000000000001 /* VideoPlayerControlView.swift */; };
 		NEW00009000000000000001 /* MediaGestureModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00010000000000000001 /* MediaGestureModifiers.swift */; };
 		NEW00011000000000000001 /* MediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00012000000000000001 /* MediaTypes.swift */; };
 		NEW00013000000000000001 /* SupportingViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00014000000000000001 /* SupportingViews.swift */; };
-/* End PBXBuildFile section */
+		NEW00024000000000000001 /* SplashScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00025000000000000001 /* SplashScreenView.swift */; };
 
 /* Begin PBXFileReference section */
 		23A2E990B576D946BCCEC429 /* Pods-PhotoTidy-Toilet Buddy.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PhotoTidy-Toilet Buddy.debug.xcconfig"; path = "Target Support Files/Pods-PhotoTidy-Toilet Buddy/Pods-PhotoTidy-Toilet Buddy.debug.xcconfig"; sourceTree = "<group>"; };
@@ -61,13 +63,14 @@
 		L9F03AD94C1664952ADE46B8 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		LB82761FD75C2438F9F83B30 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		NEW00002000000000000001 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
+		NEW00021000000000000001 /* PhotoCountCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoCountCacheManager.swift; sourceTree = "<group>"; };
+		NEW00023000000000000001 /* PaginatedPhotoProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaginatedPhotoProcessor.swift; sourceTree = "<group>"; };
 		NEW00004000000000000001 /* PredicateBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PredicateBuilder.swift; sourceTree = "<group>"; };
 		NEW00006000000000000001 /* LivePhotoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePhotoView.swift; sourceTree = "<group>"; };
 		NEW00008000000000000001 /* VideoPlayerControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerControlView.swift; sourceTree = "<group>"; };
 		NEW00010000000000000001 /* MediaGestureModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGestureModifiers.swift; sourceTree = "<group>"; };
 		NEW00012000000000000001 /* MediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaTypes.swift; sourceTree = "<group>"; };
-		NEW00014000000000000001 /* SupportingViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportingViews.swift; sourceTree = "<group>"; };
-/* End PBXFileReference section */
+		NEW00025000000000000001 /* SplashScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashScreenView.swift; sourceTree = "<group>"; };
 
 /* Begin PBXFrameworksBuildPhase section */
 		A1000011000000000000001 /* Frameworks */ = {
@@ -157,6 +160,8 @@
 			isa = PBXGroup;
 			children = (
 				NEW00004000000000000001 /* PredicateBuilder.swift */,
+				NEW00021000000000000001 /* PhotoCountCacheManager.swift */,
+				NEW00023000000000000001 /* PaginatedPhotoProcessor.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -169,6 +174,7 @@
 				NEW00010000000000000001 /* MediaGestureModifiers.swift */,
 				NEW00012000000000000001 /* MediaTypes.swift */,
 				NEW00014000000000000001 /* SupportingViews.swift */,
+				NEW00025000000000000001 /* SplashScreenView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -304,12 +310,15 @@
 				A1000025000000000000001 /* PhotoService.swift in Sources */,
 				A1000001000000000000001 /* PhotoTidyToiletBuddyApp.swift in Sources */,
 				NEW00001000000000000001 /* Logger.swift in Sources */,
+				NEW00020000000000000001 /* PhotoCountCacheManager.swift in Sources */,
+				NEW00022000000000000001 /* PaginatedPhotoProcessor.swift in Sources */,
 				NEW00003000000000000001 /* PredicateBuilder.swift in Sources */,
 				NEW00005000000000000001 /* LivePhotoView.swift in Sources */,
 				NEW00007000000000000001 /* VideoPlayerControlView.swift in Sources */,
 				NEW00009000000000000001 /* MediaGestureModifiers.swift in Sources */,
 				NEW00011000000000000001 /* MediaTypes.swift in Sources */,
 				NEW00013000000000000001 /* SupportingViews.swift in Sources */,
+				NEW00024000000000000001 /* SplashScreenView.swift in Sources */,
 				7A169A1967101CEE69C51CD9 /* ReviewDeletionsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

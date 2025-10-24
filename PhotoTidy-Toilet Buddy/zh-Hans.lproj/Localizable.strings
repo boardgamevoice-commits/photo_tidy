@@ -280,3 +280,27 @@
 "photo.count.permission_denied" = "相册权限不足";
 "photo.count.calculation_failed" = "计算失败: %@";
 
+/* 自动重置通知 */
+"auto_reset.duration_filter" = "移除视频时长过滤";
+"auto_reset.location_filter" = "移除位置过滤";
+"auto_reset.date_range" = "移除日期范围过滤";
+"auto_reset.content_type" = "切换到%@类型";
+"auto_reset.livephoto_conflict" = "已自动取消Live Photo选择";
+"auto_reset.notification_message" = "已保留新选择，移除了冲突的过滤器: %@";
+"auto_reset.undo_button" = "撤销";
+
+/* 验证警告 */
+"validation.warning.livephoto_with_duration" = "Live Photo不支持视频时长过滤";
+"validation.suggestion.livephoto_conflict" = "已自动取消视频时长过滤";
+
+/* 启动屏幕 */
+"splash.app_title" = "Photo Tidy";
+"splash.app_subtitle" = "Toilet Buddy";
+"splash.step.initializing" = "正在初始化应用...";
+"splash.step.checking_permissions" = "正在检查照片权限...";
+"splash.step.preparing_library" = "正在准备照片库...";
+"splash.step.extracting_assets" = "正在提取照片资源...";
+"splash.step.loading_interface" = "正在加载界面...";
+"splash.description.main" = "正在为您准备最佳的照片整理体验";
+"splash.description.subtitle" = "首次启动可能需要几秒钟时间";
+

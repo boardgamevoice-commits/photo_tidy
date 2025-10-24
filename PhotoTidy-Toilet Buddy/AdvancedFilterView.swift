@@ -22,10 +22,15 @@ struct AdvancedFilterView: View {
     @State private var combinedFilterCount: PhotoCountResult = .calculating
     @State private var countCalculationTask: Task<Void, Never>?
     
+    // 自动修复相关状态
+    @State private var lastValidConfig: FilterConfiguration
+    @State private var showAutoResetNotification: Bool = false
+    @State private var autoResetMessage: String = ""
+    @State private var autoResetActions: [FilterConfiguration.AutoResetAction] = []
+    
     // 各个条件的照片数量 - 使用字典来存储每个具体选项的数量
     @State private var contentTypeCounts: [ContentType: PhotoCountResult] = [:]
     @State private var dateRangeCounts: [DateRangeType?: PhotoCountResult] = [:]
-    @State private var locationCounts: [LocationFilterType?: PhotoCountResult] = [:]
     @State private var durationCounts: [DurationFilterType?: PhotoCountResult] = [:]
     
     // MARK: - Initialization
@@ -33,6 +38,7 @@ struct AdvancedFilterView: View {
     init(filterConfig: Binding<FilterConfiguration>) {
         self._filterConfig = filterConfig
         self._tempConfig = State(initialValue: filterConfig.wrappedValue)
+        self._lastValidConfig = State(initialValue: filterConfig.wrappedValue)
     }
     
     // MARK: - Body
@@ -45,9 +51,6 @@ struct AdvancedFilterView: View {
                 
                 // 日期范围选择
                 dateRangeSection
-                
-                // 位置信息选择
-                locationSection
                 
                 // 视频时长选择
                 durationSection
@@ -95,7 +98,28 @@ struct AdvancedFilterView: View {
         .onDisappear {
             cancelCombinedFilterCountCalculation()
         }
-        .onChange(of: tempConfig) { _ in
+        .onChange(of: tempConfig) { newConfig in
+            // 检测冲突并自动修复
+            let validation = newConfig.validate()
+            
+            if !validation.autoResetActions.isEmpty {
+                // 有冲突需要自动修复
+                let fixedConfig = newConfig.autoResolveConflicts()
+                
+                // 更新临时配置
+                withAnimation(.spring(response: 0.3)) {
+                    tempConfig = fixedConfig
+                }
+                
+                // 显示自动修复通知
+                showAutoResetNotification(with: validation.autoResetActions)
+                
+                AppLogger.shared.info("自动修复过滤器冲突: \(validation.autoResetActions.map { $0.description }.joined(separator: ", "))", category: .ui)
+            } else {
+                // 无冲突，更新最后有效配置
+                lastValidConfig = newConfig
+            }
+            
             calculateCombinedFilterCount()
             calculateIndividualCounts()
         }
@@ -114,7 +138,7 @@ struct AdvancedFilterView: View {
                     photoCount: contentTypeCounts[type]
                 ) {
                     withAnimation(.spring(response: 0.3)) {
-                        tempConfig.contentType = type
+                        tempConfig.handleContentTypeSelection(type)
                     }
                 }
             }
@@ -166,45 +190,6 @@ struct AdvancedFilterView: View {
         }
     }
     
-    // MARK: - Location Section
-    
-    private var locationSection: some View {
-        Section {
-            // 不限选项
-            FilterOptionRow(
-                icon: "infinity",
-                title: L10n.Filter.unlimited,
-                description: L10n.Filter.unlimitedLocation,
-                isSelected: tempConfig.locationFilter == nil,
-                photoCount: locationCounts[nil]
-            ) {
-                withAnimation(.spring(response: 0.3)) {
-                    tempConfig.locationFilter = nil
-                }
-            }
-            
-            ForEach(LocationFilterType.allCases) { location in
-                FilterOptionRow(
-                    icon: location == .withLocation ? "location.fill" : "location.slash",
-                    title: location.localizedName,
-                    description: location == .withLocation ? NSLocalizedString("location.with_location.desc", comment: "") : NSLocalizedString("location.without_location.desc", comment: ""),
-                    isSelected: tempConfig.locationFilter == location,
-                    photoCount: locationCounts[location]
-                ) {
-                    withAnimation(.spring(response: 0.3)) {
-                        tempConfig.locationFilter = location
-                    }
-                }
-            }
-        } header: {
-            SectionHeaderView(icon: "location", title: L10n.Filter.location)
-        } footer: {
-            Text(L10n.Filter.selectLocation)
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-    }
-    
     // MARK: - Duration Section
     
     private var durationSection: some View {
@@ -218,7 +203,7 @@ struct AdvancedFilterView: View {
                 photoCount: durationCounts[nil]
             ) {
                 withAnimation(.spring(response: 0.3)) {
-                    tempConfig.durationFilter = nil
+                    tempConfig.handleDurationSelection(nil)
                 }
             }
             
@@ -231,7 +216,7 @@ struct AdvancedFilterView: View {
                     photoCount: durationCounts[duration]
                 ) {
                     withAnimation(.spring(response: 0.3)) {
-                        tempConfig.durationFilter = duration
+                        tempConfig.handleDurationSelection(duration)
                     }
                 }
             }
@@ -360,6 +345,19 @@ struct AdvancedFilterView: View {
                                 .stroke(Color.green.opacity(0.3), lineWidth: 1)
                         )
                 )
+                
+                // 自动修复通知
+                if showAutoResetNotification {
+                    AutoResetNotificationView(
+                        message: autoResetMessage,
+                        onUndo: undoAutoReset,
+                        onDismiss: {
+                            withAnimation(.spring(response: 0.3)) {
+                                showAutoResetNotification = false
+                            }
+                        }
+                    )
+                }
                 
                 // 验证警告和建议
                 let validation = tempConfig.validate()
@@ -528,8 +526,6 @@ struct AdvancedFilterView: View {
         calculateAllContentTypeCounts()
         // 计算所有日期范围的数量
         calculateAllDateRangeCounts()
-        // 计算所有位置的数量
-        calculateAllLocationCounts()
         // 计算所有时长的数量
         calculateAllDurationCounts()
     }
@@ -548,7 +544,6 @@ struct AdvancedFilterView: View {
                     let count = try await performPhotoCountCalculation(filterConfig: FilterConfiguration(
                         contentType: contentType,
                         dateRange: nil,
-                        locationFilter: nil,
                         durationFilter: nil,
                         excludeHidden: false,
                         excludeFavorite: false
@@ -579,12 +574,11 @@ struct AdvancedFilterView: View {
             do {
                 // 在后台线程执行计算
                 let count = try await performPhotoCountCalculation(filterConfig: FilterConfiguration(
-                    contentType: .all,
-                    dateRange: nil,
-                    locationFilter: nil,
-                    durationFilter: nil,
-                    excludeHidden: false,
-                    excludeFavorite: false
+                        contentType: .all,
+                        dateRange: nil,
+                        durationFilter: nil,
+                        excludeHidden: false,
+                        excludeFavorite: false
                 ))
                 // 在主线程更新UI
                 await MainActor.run {
@@ -611,7 +605,6 @@ struct AdvancedFilterView: View {
                     let count = try await performPhotoCountCalculation(filterConfig: FilterConfiguration(
                         contentType: .all,
                         dateRange: dateRange,
-                        locationFilter: nil,
                         durationFilter: nil,
                         excludeHidden: false,
                         excludeFavorite: false
@@ -630,69 +623,6 @@ struct AdvancedFilterView: View {
         }
     }
     
-    /// 计算所有位置的照片数量
-    private func calculateAllLocationCounts() {
-        // 计算不限选项
-        Task {
-            // 在后台线程开始计算
-            await MainActor.run {
-                locationCounts[nil] = .calculating
-            }
-            
-            do {
-                // 在后台线程执行计算
-                let count = try await performPhotoCountCalculation(filterConfig: FilterConfiguration(
-                    contentType: .all,
-                    dateRange: nil,
-                    locationFilter: nil,
-                    durationFilter: nil,
-                    excludeHidden: false,
-                    excludeFavorite: false
-                ))
-                // 在主线程更新UI
-                await MainActor.run {
-                    locationCounts[nil] = .success(count)
-                }
-            } catch {
-                // 在主线程更新UI
-                await MainActor.run {
-                    locationCounts[nil] = .error(error.localizedDescription)
-                }
-            }
-        }
-        
-        // 计算每个位置选项
-        for location in LocationFilterType.allCases {
-            Task {
-                // 在后台线程开始计算
-                await MainActor.run {
-                    locationCounts[location] = .calculating
-                }
-                
-                do {
-                    // 在后台线程执行计算
-                    let count = try await performPhotoCountCalculation(filterConfig: FilterConfiguration(
-                        contentType: .all,
-                        dateRange: nil,
-                        locationFilter: location,
-                        durationFilter: nil,
-                        excludeHidden: false,
-                        excludeFavorite: false
-                    ))
-                    // 在主线程更新UI
-                    await MainActor.run {
-                        locationCounts[location] = .success(count)
-                    }
-                } catch {
-                    // 在主线程更新UI
-                    await MainActor.run {
-                        locationCounts[location] = .error(error.localizedDescription)
-                    }
-                }
-            }
-        }
-    }
-    
     /// 计算所有时长的照片数量
     private func calculateAllDurationCounts() {
         // 计算不限选项
@@ -705,12 +635,11 @@ struct AdvancedFilterView: View {
             do {
                 // 在后台线程执行计算
                 let count = try await performPhotoCountCalculation(filterConfig: FilterConfiguration(
-                    contentType: .all,
-                    dateRange: nil,
-                    locationFilter: nil,
-                    durationFilter: nil,
-                    excludeHidden: false,
-                    excludeFavorite: false
+                        contentType: .all,
+                        dateRange: nil,
+                        durationFilter: nil,
+                        excludeHidden: false,
+                        excludeFavorite: false
                 ))
                 // 在主线程更新UI
                 await MainActor.run {
@@ -737,7 +666,6 @@ struct AdvancedFilterView: View {
                     let count = try await performPhotoCountCalculation(filterConfig: FilterConfiguration(
                         contentType: .all,
                         dateRange: nil,
-                        locationFilter: nil,
                         durationFilter: duration,
                         excludeHidden: false,
                         excludeFavorite: false
@@ -756,6 +684,37 @@ struct AdvancedFilterView: View {
         }
     }
     
+    /// 显示自动重置通知
+    private func showAutoResetNotification(with actions: [FilterConfiguration.AutoResetAction]) {
+        autoResetActions = actions
+        let actionDescriptions = actions.map { $0.description }.joined(separator: ", ")
+        autoResetMessage = String(format: NSLocalizedString("auto_reset.notification_message", comment: ""), actionDescriptions)
+        
+        withAnimation(.spring(response: 0.5)) {
+            showAutoResetNotification = true
+        }
+        
+        // 3秒后自动隐藏通知
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation(.spring(response: 0.3)) {
+                showAutoResetNotification = false
+            }
+        }
+    }
+    
+    /// 撤销自动修复
+    private func undoAutoReset() {
+        withAnimation(.spring(response: 0.3)) {
+            tempConfig = lastValidConfig
+        }
+        
+        withAnimation(.spring(response: 0.3)) {
+            showAutoResetNotification = false
+        }
+        
+        AppLogger.shared.info("用户撤销自动修复", category: .ui)
+    }
+    
     /// 取消组合条件数量计算
     private func cancelCombinedFilterCountCalculation() {
         countCalculationTask?.cancel()
@@ -764,6 +723,62 @@ struct AdvancedFilterView: View {
 }
 
 // MARK: - Supporting Views
+
+struct AutoResetNotificationView: View {
+    let message: String
+    let onUndo: () -> Void
+    let onDismiss: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // 图标
+            Image(systemName: "arrow.counterclockwise")
+                .foregroundColor(.blue)
+                .font(.system(size: 16))
+            
+            // 消息
+            Text(message)
+                .font(.caption)
+                .foregroundColor(.blue)
+                .lineLimit(2)
+            
+            Spacer()
+            
+            // 撤销按钮
+            Button(NSLocalizedString("auto_reset.undo_button", comment: "Undo")) {
+                onUndo()
+            }
+            .font(.caption)
+            .foregroundColor(.blue)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.blue.opacity(0.1))
+            )
+            
+            // 关闭按钮
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12))
+                    .foregroundColor(.blue)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.blue.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                )
+        )
+        .transition(.asymmetric(
+            insertion: .scale.combined(with: .opacity),
+            removal: .scale.combined(with: .opacity)
+        ))
+    }
+}
 
 struct SectionHeaderView: View {
     let icon: String

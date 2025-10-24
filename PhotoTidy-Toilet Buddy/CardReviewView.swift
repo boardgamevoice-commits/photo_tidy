@@ -1046,7 +1046,7 @@ struct CardReviewView: View {
                         .foregroundColor(.white)
                 }
             }
-            .buttonStyle(ScaleButtonStyle())
+            .buttonStyle(.bordered)
             .disabled(!viewModel.canMovePrevious)
             .opacity(viewModel.canMovePrevious ? 1.0 : 0.4)
             
@@ -1078,7 +1078,7 @@ struct CardReviewView: View {
                         .foregroundColor(.white)
                 }
             }
-            .buttonStyle(ScaleButtonStyle())
+            .buttonStyle(.bordered)
             
             // 分享按钮（右中）
             Button(action: {
@@ -1108,7 +1108,7 @@ struct CardReviewView: View {
                         .foregroundColor(.white)
                 }
             }
-            .buttonStyle(ScaleButtonStyle())
+            .buttonStyle(.bordered)
             
             // 下一张/完成按钮（右侧）
             Button(action: {
@@ -1145,7 +1145,7 @@ struct CardReviewView: View {
                         .foregroundColor(.white)
                 }
             }
-            .buttonStyle(ScaleButtonStyle())
+            .buttonStyle(.bordered)
         }
         .padding(.horizontal, 15)
     }

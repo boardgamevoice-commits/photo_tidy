@@ -280,3 +280,27 @@
 "photo.count.permission_denied" = "Photo library permission denied";
 "photo.count.calculation_failed" = "Calculation failed: %@";
 
+/* Auto Reset Notifications */
+"auto_reset.duration_filter" = "Removed video duration filter";
+"auto_reset.location_filter" = "Removed location filter";
+"auto_reset.date_range" = "Removed date range filter";
+"auto_reset.content_type" = "Switched to %@ type";
+"auto_reset.livephoto_conflict" = "Auto-cancelled Live Photo selection";
+"auto_reset.notification_message" = "Kept new selection, removed conflicting filters: %@";
+"auto_reset.undo_button" = "Undo";
+
+/* Validation Warnings */
+"validation.warning.livephoto_with_duration" = "Live Photo does not support video duration filtering";
+"validation.suggestion.livephoto_conflict" = "Auto-cancelled video duration filter";
+
+/* Splash Screen */
+"splash.app_title" = "Photo Tidy";
+"splash.app_subtitle" = "Toilet Buddy";
+"splash.step.initializing" = "Initializing app...";
+"splash.step.checking_permissions" = "Checking photo permissions...";
+"splash.step.preparing_library" = "Preparing photo library...";
+"splash.step.extracting_assets" = "Extracting photo assets...";
+"splash.step.loading_interface" = "Loading interface...";
+"splash.description.main" = "Preparing the best photo organizing experience for you";
+"splash.description.subtitle" = "First launch may take a few seconds";
+

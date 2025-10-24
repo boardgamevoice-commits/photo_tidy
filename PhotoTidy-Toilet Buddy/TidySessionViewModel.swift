@@ -330,7 +330,7 @@ class TidySessionViewModel: ObservableObject {
         }
         
         // 获取随机照片
-        let assets = photoService.fetchRandomAssets(
+        let assets = await photoService.fetchRandomAssetsAsync(
             count: count,
             filterConfig: filterConfig
         )
@@ -996,7 +996,7 @@ class TidySessionViewModel: ObservableObject {
         }
         
         // 获取照片
-        let assets = photoService.fetchRandomAssets(
+        let assets = await photoService.fetchRandomAssetsAsync(
             count: count,
             filterConfig: filterConfig
         )

@@ -6,11 +6,15 @@
 //
 
 import SwiftUI
+import Photos
 
 @main
 struct PhotoTidyToiletBuddyApp: App {
     
     @StateObject private var settingsManager = SettingsManager.shared
+    @State private var showSplashScreen = true
+    @State private var extractedAssets: [PHAsset] = []
+    @State private var extractionProgress: Double = 0.0
     
     init() {
         // 初始化 AdMob SDK
@@ -20,9 +24,18 @@ struct PhotoTidyToiletBuddyApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .preferredColorScheme(settingsManager.currentColorScheme) // 根据用户设置应用主题
-                .environmentObject(settingsManager)
+            if showSplashScreen {
+                SplashScreenView(
+                    extractedAssets: $extractedAssets,
+                    extractionProgress: $extractionProgress
+                ) {
+                    showSplashScreen = false
+                }
+            } else {
+                ContentView()
+                    .preferredColorScheme(settingsManager.currentColorScheme) // 根据用户设置应用主题
+                    .environmentObject(settingsManager)
+            }
         }
     }
 }

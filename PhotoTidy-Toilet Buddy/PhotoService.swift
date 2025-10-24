@@ -101,71 +101,112 @@ class PhotoService: NSObject {
     
     // MARK: - 随机选取照片
     
-    /// 随机选取符合条件的照片资源
+    /// 异步随机选取符合条件的照片资源
     /// - Parameters:
     ///   - count: 需要选取的照片数量
     ///   - filterConfig: 过滤配置
+    ///   - progressHandler: 进度回调 (当前进度, 总数)
     /// - Returns: 随机选取的 PHAsset 数组
-    func fetchRandomAssets(
+    func fetchRandomAssetsAsync(
         count: Int,
-        filterConfig: FilterConfiguration
-    ) -> [PHAsset] {
+        filterConfig: FilterConfiguration,
+        progressHandler: @escaping (Double) -> Void = { _ in }
+    ) async -> [PHAsset] {
         
-        // 1. 使用 PredicateBuilder 构造 PHFetchOptions
-        let fetchOptions = PHFetchOptions()
-        
-        // 使用统一的 PredicateBuilder
-        fetchOptions.predicate = PredicateBuilder.buildCombinedPredicate(from: filterConfig)
-        
-        // 按创建日期降序排列（可选，用于调试）
-        fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        
-        // 2. 获取所有符合条件的资源
-        let fetchResult = PHAsset.fetchAssets(with: fetchOptions)
-        
-        AppLogger.shared.info("找到 \(fetchResult.count) 个符合条件的照片", category: .photo)
-        
-        // 如果没有资源，直接返回空数组
-        guard fetchResult.count > 0 else {
-            AppLogger.shared.warning("没有找到符合条件的照片", category: .photo)
-            return []
+        return await withCheckedContinuation { continuation in
+            Task {
+                // 1. 使用 PredicateBuilder 构造 PHFetchOptions
+                let fetchOptions = PHFetchOptions()
+                
+                // 使用统一的 PredicateBuilder
+                fetchOptions.predicate = PredicateBuilder.buildCombinedPredicate(from: filterConfig)
+                
+                // 按创建日期降序排列（可选，用于调试）
+                fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+                
+                // 2. 获取所有符合条件的资源
+                let fetchResult = PHAsset.fetchAssets(with: fetchOptions)
+                
+                AppLogger.shared.info("找到 \(fetchResult.count) 个符合条件的照片", category: .photo)
+                
+                // 如果没有资源，直接返回空数组
+                guard fetchResult.count > 0 else {
+                    AppLogger.shared.warning("没有找到符合条件的照片", category: .photo)
+                    continuation.resume(returning: [])
+                    return
+                }
+                
+                // 3. 使用异步分页处理提取资源
+                let assets = await fetchAssetsWithPaginationAsync(
+                    from: fetchResult,
+                    count: count,
+                    filterConfig: filterConfig,
+                    progressHandler: progressHandler
+                )
+                
+                continuation.resume(returning: assets)
+            }
         }
-        
-        // 3. 提取所有 localIdentifier 到数组中
-        var allIdentifiers: [String] = []
-        var assetMap: [String: PHAsset] = [:]
+    }
+    
+    /// 异步使用分页处理提取资源
+    private func fetchAssetsWithPaginationAsync(
+        from fetchResult: PHFetchResult<PHAsset>,
+        count: Int,
+        filterConfig: FilterConfiguration,
+        progressHandler: @escaping (Double) -> Void
+    ) async -> [PHAsset] {
         
         // 判断是否需要自拍后置过滤
         let needsSelfieFilter = filterConfig.contentType == .selfies
         
-        fetchResult.enumerateObjects { asset, _, _ in
-            // 自拍后置过滤
-            if needsSelfieFilter {
-                if !self.isSelfie(asset: asset) {
-                    return // 跳过非自拍照片
+        AppLogger.shared.debug("开始异步提取资源，总数: \(fetchResult.count)，需要自拍过滤: \(needsSelfieFilter)", category: .photo)
+        
+        var allAssets: [PHAsset] = []
+        let totalCount = fetchResult.count
+        let batchSize = 100
+        
+        // 分批处理
+        for batchIndex in 0..<Int(ceil(Double(totalCount) / Double(batchSize))) {
+            let startIndex = batchIndex * batchSize
+            let endIndex = min(startIndex + batchSize, totalCount)
+            
+            AppLogger.shared.debug("异步处理批次 \(batchIndex + 1): 索引 \(startIndex) 到 \(endIndex - 1)", category: .photo)
+            
+            // 处理当前批次
+            for index in startIndex..<endIndex {
+                let asset = fetchResult.object(at: index)
+                
+                // 自拍后置过滤
+                if needsSelfieFilter {
+                    if !self.isSelfie(asset: asset) {
+                        continue // 跳过非自拍照片
+                    }
                 }
+                
+                allAssets.append(asset)
             }
             
-            let identifier = asset.localIdentifier
-            allIdentifiers.append(identifier)
-            assetMap[identifier] = asset
+            // 更新进度
+            let progress = Double(batchIndex + 1) / Double(Int(ceil(Double(totalCount) / Double(batchSize))))
+            progressHandler(progress)
+            
+            // 让出主线程，避免阻塞UI
+            await Task.yield()
         }
         
-        AppLogger.shared.debug("提取了 \(allIdentifiers.count) 个资源 ID\(needsSelfieFilter ? "（已应用自拍过滤）" : "")", category: .photo)
+        AppLogger.shared.debug("异步分页处理完成，提取了 \(allAssets.count) 个资源\(needsSelfieFilter ? "（已应用自拍过滤）" : "")", category: .photo)
         
-        // 4. 执行 Fisher-Yates 洗牌算法
-        let shuffledIdentifiers = fisherYatesShuffle(array: allIdentifiers)
+        // 执行 Fisher-Yates 洗牌算法
+        let shuffledAssets = fisherYatesShuffle(array: allAssets)
         
         AppLogger.shared.debug("Fisher-Yates 洗牌完成", category: .photo)
         
-        // 5. 取前 N 个 ID
-        let selectedCount = min(count, shuffledIdentifiers.count)
-        let selectedIdentifiers = Array(shuffledIdentifiers.prefix(selectedCount))
+        // 取前 N 个
+        let selectedCount = min(count, shuffledAssets.count)
+        let selectedAssets = Array(shuffledAssets.prefix(selectedCount))
         
-        AppLogger.shared.info("选取了 \(selectedIdentifiers.count) 个随机照片", category: .photo)
-        
-        // 6. 根据 ID 获取对应的 PHAsset
-        let selectedAssets = selectedIdentifiers.compactMap { assetMap[$0] }
+        AppLogger.shared.info("选取了 \(selectedAssets.count) 个随机照片", category: .photo)
         
         return selectedAssets
     }
