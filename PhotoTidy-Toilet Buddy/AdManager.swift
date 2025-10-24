@@ -43,10 +43,11 @@ class AdManager: NSObject {
                 AppLogger.shared.debug("AdMob 适配器: \(adapter.key) - 状态: \(adapter.value.state.rawValue)", category: .network)
             }
             
-            // 初始化完成后预加载广告
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            // 优化预加载策略：只预加载插页式广告，激励广告按需加载
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                AppLogger.shared.info("开始预加载插页式广告", category: .network)
                 self.loadInterstitialAd()
-                self.loadRewardedAd()
+                // 激励广告将在需要时再加载，减少启动时的网络请求
             }
         }
     }
@@ -99,7 +100,8 @@ class AdManager: NSObject {
     
     /// Load a rewarded ad
     /// Call this method to preload a rewarded ad before showing it
-    func loadRewardedAd() {
+    /// - Parameter completion: Optional completion callback with success status
+    func loadRewardedAd(completion: ((Bool) -> Void)? = nil) {
         AppLogger.shared.debug("开始加载激励广告...", category: .network)
         let request = GADRequest()
         
@@ -107,12 +109,14 @@ class AdManager: NSObject {
             if let error = error {
                 AppLogger.shared.error("激励广告加载失败", error: error, category: .network)
                 self?.rewardedAd = nil
+                completion?(false)
                 return
             }
             
             AppLogger.shared.debug("激励广告加载成功", category: .network)
             self?.rewardedAd = ad
             self?.rewardedAd?.fullScreenContentDelegate = self
+            completion?(true)
         }
     }
     
@@ -142,10 +146,23 @@ class AdManager: NSObject {
                 self.userEarnedReward = true
             }
         } else {
-            AppLogger.shared.warning("激励广告未准备好，无法展示", category: .network)
-            completion(false)
-            // 尝试重新加载广告以备下次使用
-            loadRewardedAd()
+            AppLogger.shared.warning("激励广告未准备好，按需加载...", category: .network)
+            // 按需加载激励广告
+            loadRewardedAd { [weak self] success in
+                if success, let rewardedAd = self?.rewardedAd {
+                    AppLogger.shared.info("激励广告加载成功，准备展示...", category: .network)
+                    self?.rewardedAdCompletion = completion
+                    
+                    rewardedAd.present(fromRootViewController: rootViewController) {
+                        let reward = rewardedAd.adReward
+                        AppLogger.shared.info("用户获得奖励: \(reward.amount) \(reward.type)", category: .network)
+                        self?.userEarnedReward = true
+                    }
+                } else {
+                    AppLogger.shared.error("激励广告加载失败", category: .network)
+                    completion(false)
+                }
+            }
         }
     }
     

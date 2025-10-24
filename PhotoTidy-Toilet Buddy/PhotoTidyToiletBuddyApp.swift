@@ -15,9 +15,14 @@ struct PhotoTidyToiletBuddyApp: App {
     @State private var showSplashScreen = true
     
     init() {
-        // 初始化 AdMob SDK
+        // 记录应用启动
         AppLogger.shared.info("Photo Tidy App 启动", category: .general)
-        AdManager.shared.initializeAdMob()
+        
+        // 延迟初始化 AdMob SDK，避免阻塞主线程和启动过程
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            AppLogger.shared.info("开始延迟初始化 AdMob SDK", category: .network)
+            AdManager.shared.initializeAdMob()
+        }
     }
     
     var body: some Scene {
