@@ -13,8 +13,6 @@ struct PhotoTidyToiletBuddyApp: App {
     
     @StateObject private var settingsManager = SettingsManager.shared
     @State private var showSplashScreen = true
-    @State private var extractedAssets: [PHAsset] = []
-    @State private var extractionProgress: Double = 0.0
     
     init() {
         // 初始化 AdMob SDK
@@ -26,8 +24,8 @@ struct PhotoTidyToiletBuddyApp: App {
         WindowGroup {
             if showSplashScreen {
                 SplashScreenView(
-                    extractedAssets: $extractedAssets,
-                    extractionProgress: $extractionProgress
+                    extractedAssets: .constant([]),
+                    extractionProgress: .constant(0.0)
                 ) {
                     showSplashScreen = false
                 }

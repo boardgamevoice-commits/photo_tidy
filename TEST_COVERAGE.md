@@ -94,8 +94,6 @@
 ✅ testContentType_VideoTypes()
    验证：3 种视频类型可以与时长组合
 
-✅ testSelfiesType_AlwaysHasSuggestion()
-   验证：自拍总是有准确度建议
 
 ✅ testContentTypeWithDateRange_AllCombinations()
    验证：所有内容类型与日期的组合
@@ -352,23 +350,11 @@
 验证：✅ 通过
 ```
 
-### ✅ 场景 4：清理无GPS的旧自拍
-```swift
-配置：自拍 + 1年前 + 无位置
-测试：testScenario_CleanSelfiesWithoutLocation()
-验证：✅ 通过（有自拍准确度建议）
-```
 
 ---
 
 ## ⚠️ 已知限制和警告
 
-### 1. 自拍检测准确度
-```
-✅ 测试验证存在准确度警告
-✅ 所有自拍配置都会显示 "准确度约 70%" 提示
-测试：testSelfies_AlwaysHasSuggestion()
-```
 
 ### 2. 视频位置信息
 ```

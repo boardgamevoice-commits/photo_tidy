@@ -83,11 +83,6 @@ class PredicateBuilder {
             predicates.append(contentsOf: [imagePredicate, burstPredicate])
             AppLogger.shared.debug("内容类型：连拍照片（所有连拍）", category: .photo)
             
-        case .selfies:
-            // 自拍需要图片类型 + 后置过滤
-            let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
-            predicates.append(imagePredicate)
-            AppLogger.shared.debug("内容类型：自拍（需后置过滤）", category: .photo)
         }
         
         return predicates

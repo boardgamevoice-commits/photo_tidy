@@ -157,10 +157,7 @@ class PhotoService: NSObject {
         progressHandler: @escaping (Double) -> Void
     ) async -> [PHAsset] {
         
-        // 判断是否需要自拍后置过滤
-        let needsSelfieFilter = filterConfig.contentType == .selfies
-        
-        AppLogger.shared.debug("开始异步提取资源，总数: \(fetchResult.count)，需要自拍过滤: \(needsSelfieFilter)", category: .photo)
+        AppLogger.shared.debug("开始异步提取资源，总数: \(fetchResult.count)", category: .photo)
         
         var allAssets: [PHAsset] = []
         let totalCount = fetchResult.count
@@ -177,12 +174,6 @@ class PhotoService: NSObject {
             for index in startIndex..<endIndex {
                 let asset = fetchResult.object(at: index)
                 
-                // 自拍后置过滤
-                if needsSelfieFilter {
-                    if !self.isSelfie(asset: asset) {
-                        continue // 跳过非自拍照片
-                    }
-                }
                 
                 allAssets.append(asset)
             }
@@ -195,7 +186,7 @@ class PhotoService: NSObject {
             await Task.yield()
         }
         
-        AppLogger.shared.debug("异步分页处理完成，提取了 \(allAssets.count) 个资源\(needsSelfieFilter ? "（已应用自拍过滤）" : "")", category: .photo)
+        AppLogger.shared.debug("异步分页处理完成，提取了 \(allAssets.count) 个资源", category: .photo)
         
         // 执行 Fisher-Yates 洗牌算法
         let shuffledAssets = fisherYatesShuffle(array: allAssets)
@@ -465,64 +456,6 @@ class PhotoService: NSObject {
         ]
     }
     
-    // MARK: - 自拍检测
-    
-    /// 判断是否为自拍照片
-    /// - Parameter asset: PHAsset 对象
-    /// - Returns: 如果是自拍则返回 true
-    private func isSelfie(asset: PHAsset) -> Bool {
-        // 只处理图片类型
-        guard asset.mediaType == .image else {
-            return false
-        }
-        
-        // 方法1: 检查照片尺寸比例（前置摄像头通常拍摄较小的照片）
-        // 注意：这种方法不是100%准确，但可以覆盖大部分情况
-        let width = asset.pixelWidth
-        let height = asset.pixelHeight
-        
-        // 前置摄像头拍摄的照片通常分辨率较低
-        // iPhone 前置摄像头常见分辨率：
-        // - iPhone X 及以后: 7MP (约 3088x2316)
-        // - iPhone 8 及之前: 1.2MP (约 960x1280) 到 5MP
-        let totalPixels = width * height
-        let isLowerResolution = totalPixels < 10_000_000 // 10MP 以下
-        
-        // 方法2: 检查是否有人脸信息（自拍通常有人脸）
-        // 注意：需要照片库有分析权限
-        // 这里我们使用启发式规则
-        
-        // 方法3: 通过元数据判断（最可靠的方法）
-        // 获取资源的元数据
-        let resources = PHAssetResource.assetResources(for: asset)
-        for resource in resources {
-            // 检查文件名是否包含 IMG_开头（相机拍摄）
-            let filename = resource.originalFilename.uppercased()
-            
-            // 前置摄像头拍摄的照片文件名模式
-            // iOS 通常不会在文件名中标记是否为自拍
-            // 但我们可以通过其他特征判断
-            
-            // 如果是 Live Photo，检查视频资源
-            if resource.type == .pairedVideo {
-                // Live Photo 的自拍通常也是前置摄像头
-                continue
-            }
-        }
-        
-        // 综合判断：分辨率 + 宽高比
-        // 前置摄像头拍摄的照片通常是竖屏且分辨率较低
-        let isPortrait = height > width
-        let aspectRatio = Double(max(width, height)) / Double(min(width, height))
-        let isPhoneAspect = aspectRatio >= 1.3 && aspectRatio <= 1.8 // 常见手机拍照比例
-        
-        // 启发式规则：低分辨率 + 竖屏 + 手机比例 = 可能是自拍
-        let isSelfieCandidate = isLowerResolution && isPortrait && isPhoneAspect
-        
-        // 注意：由于 iOS Photos API 限制，无法 100% 准确识别自拍
-        // 这里采用保守策略，可能会有误判
-        return isSelfieCandidate
-    }
 }
 
 // MARK: - PHPhotoLibraryChangeObserver

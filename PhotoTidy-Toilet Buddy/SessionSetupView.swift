@@ -95,6 +95,11 @@ struct SessionSetupView: View {
     @State private var countCalculationTask: Task<Void, Never>?
     @State private var calculationProgress: Double = 0.0
     
+    // 预提取缓存状态
+    @State private var lastPreloadConfig: FilterConfiguration?
+    @State private var lastPreloadCount: Int = 0
+    @State private var isPreloadCacheValid = false
+    
     // MARK: - UserDefaults Keys
     
     private let photoCountKey = "sessionSetup.photoCount"
@@ -145,11 +150,17 @@ struct SessionSetupView: View {
             Text(viewModel.errorMessage ?? L10n.Error.general)
         }
         .onAppear {
+            AppLogger.shared.performance("SessionSetupView onAppear 开始")
+            let startTime = Date()
+            
             loadUserPreferences()
             updateAdFreeStatus()
             startAdStatusCheck()
             startPreloading() // 新增：开始预加载
             calculateTotalPhotoCount() // 新增：计算照片总数
+            
+            let duration = Date().timeIntervalSince(startTime)
+            AppLogger.shared.performance("SessionSetupView onAppear 完成，耗时: \(String(format: "%.3f", duration))秒")
         }
         .onDisappear {
             stopAdStatusCheck()
@@ -810,7 +821,7 @@ struct SessionSetupView: View {
         restartPreloading()
     }
     
-    /// 重新开始预加载（带防抖）
+    /// 重新开始预加载（带防抖和缓存检查）
     private func restartPreloading() {
         // 取消之前的防抖任务
         preloadDebounceTask?.cancel()
@@ -819,10 +830,32 @@ struct SessionSetupView: View {
         preloadDebounceTask = Task {
             try await Task.sleep(nanoseconds: 500_000_000) // 0.5秒防抖
             if !Task.isCancelled {
-                viewModel.startPreloading(
-                    count: Int(photoCount),
-                    filterConfig: filterConfig
-                )
+                // 检查是否需要重新预提取
+                let currentCount = Int(photoCount)
+                let needsPreload = !isPreloadCacheValid || 
+                                 lastPreloadCount != currentCount || 
+                                 lastPreloadConfig != filterConfig
+                
+                if needsPreload {
+                    AppLogger.shared.info("开始预提取：数量=\(currentCount)，配置已变化", category: .photo)
+                    AppLogger.shared.performance("预提取开始：数量=\(currentCount)")
+                    let preloadStartTime = Date()
+                    
+                    viewModel.startPreloading(
+                        count: currentCount,
+                        filterConfig: filterConfig
+                    )
+                    
+                    // 更新缓存状态
+                    lastPreloadConfig = filterConfig
+                    lastPreloadCount = currentCount
+                    isPreloadCacheValid = true
+                    
+                    let preloadDuration = Date().timeIntervalSince(preloadStartTime)
+                    AppLogger.shared.performance("预提取完成，耗时: \(String(format: "%.3f", preloadDuration))秒")
+                } else {
+                    AppLogger.shared.debug("跳过预提取：缓存有效，配置未变化", category: .photo)
+                }
             }
         }
     }
@@ -832,6 +865,11 @@ struct SessionSetupView: View {
         preloadDebounceTask?.cancel()
         preloadDebounceTask = nil
         viewModel.cancelPreloading()
+        
+        // 清除缓存状态
+        isPreloadCacheValid = false
+        lastPreloadConfig = nil
+        lastPreloadCount = 0
     }
     
     // MARK: - Photo Count Calculation
@@ -901,10 +939,6 @@ struct SessionSetupView: View {
         // 处理需要后置过滤的条件
         var finalCount = fetchResult.count
         
-        // 处理自拍特殊逻辑（需要后置过滤）
-        if filterConfig.contentType == .selfies {
-            finalCount = try await countSelfiesWithPagination(from: fetchResult)
-        }
         
         // 处理位置信息过滤（需要后置过滤）
         if let locationFilter = filterConfig.locationFilter {
@@ -917,27 +951,6 @@ struct SessionSetupView: View {
         return finalCount
     }
     
-    /// 计算自拍照片数量（需要后置过滤）- 使用分页处理
-    private func countSelfiesWithPagination(from fetchResult: PHFetchResult<PHAsset>) async throws -> Int {
-        let processor = PaginatedPhotoProcessor(batchSize: 50)
-        
-        let count = try await processor.countAssets(
-            from: fetchResult,
-            condition: { asset in
-                // 简化实现：直接返回总数，不进行复杂的自拍检测
-                // 在实际应用中，自拍检测需要更复杂的逻辑
-                return true
-            },
-            progressCallback: { progress in
-                Task { @MainActor in
-                    self.calculationProgress = progress * 0.5 // 自拍过滤占50%进度
-                }
-            }
-        )
-        
-        AppLogger.shared.debug("自拍过滤后剩余 \(count) 张照片", category: .photo)
-        return count
-    }
     
     /// 计算满足位置信息条件的照片数量（需要后置过滤）- 使用分页处理
     private func countWithLocationFilterWithPagination(from fetchResult: PHFetchResult<PHAsset>, locationFilter: LocationFilterType) async throws -> Int {
@@ -1072,7 +1085,6 @@ enum ContentFilterType: String, CaseIterable, Identifiable {
     // 基础类型
     case all = "所有媒体"
     case screenshots = "仅截图"
-    case selfies = "仅自拍"
     case panoramas = "仅全景照片"
     case livePhotos = "仅 Live Photo"
     case portraits = "仅人像模式"
@@ -1112,8 +1124,6 @@ enum ContentFilterType: String, CaseIterable, Identifiable {
             return "photo.on.rectangle.angled"
         case .screenshots:
             return "camera.viewfinder"
-        case .selfies:
-            return "person.crop.circle"
         case .panoramas:
             return "pano"
         case .livePhotos:
@@ -1159,8 +1169,6 @@ enum ContentFilterType: String, CaseIterable, Identifiable {
             return "选择所有类型的照片和视频（含图片与视频）"
         case .screenshots:
             return "只选择截屏照片"
-        case .selfies:
-            return "只选择前置摄像头拍摄的照片"
         case .panoramas:
             return "只选择全景模式拍摄的照片"
         case .livePhotos:
@@ -1206,9 +1214,6 @@ enum ContentFilterType: String, CaseIterable, Identifiable {
             return []
         case .screenshots:
             return [.photoScreenshot]
-        case .selfies:
-            // 自拍通过 PhotoService 的特殊逻辑处理
-            return []
         case .panoramas:
             return [.photoPanorama]
         case .livePhotos:
@@ -1249,10 +1254,6 @@ enum ContentFilterType: String, CaseIterable, Identifiable {
         }
     }
     
-    /// 判断是否需要自拍过滤
-    var isSelfieFilter: Bool {
-        return self == .selfies
-    }
     
     /// 判断是否需要连拍过滤
     var isBurstFilter: Bool {
@@ -1369,7 +1370,6 @@ enum ContentType: String, Codable, CaseIterable, Identifiable {
     case hdrPhotos
     case slowMotionVideos
     case timelapseVideos
-    case selfies
     
     var id: String { rawValue }
     
@@ -1377,7 +1377,6 @@ enum ContentType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .all: return NSLocalizedString("content.all", comment: "")
         case .screenshots: return NSLocalizedString("content.screenshots", comment: "")
-        case .selfies: return NSLocalizedString("content.selfies", comment: "")
         case .panoramas: return NSLocalizedString("content.panoramas", comment: "")
         case .livePhotos: return NSLocalizedString("content.live_photos", comment: "")
         case .portraits: return NSLocalizedString("content.portraits", comment: "")
@@ -1401,7 +1400,6 @@ enum ContentType: String, Codable, CaseIterable, Identifiable {
         case .hdrPhotos: return "circle.lefthalf.filled"
         case .slowMotionVideos: return "slowmo"
         case .timelapseVideos: return "timelapse"
-        case .selfies: return "person.crop.circle"
         }
     }
     
@@ -1417,7 +1415,6 @@ enum ContentType: String, Codable, CaseIterable, Identifiable {
         case .hdrPhotos: return NSLocalizedString("content.hdr_photos.desc", comment: "")
         case .slowMotionVideos: return NSLocalizedString("content.slow_motion_videos.desc", comment: "")
         case .timelapseVideos: return NSLocalizedString("content.timelapse_videos.desc", comment: "")
-        case .selfies: return NSLocalizedString("content.selfies.desc", comment: "")
         }
     }
 }
@@ -1557,7 +1554,7 @@ struct FilterConfiguration: Codable, Equatable {
         }
         
         // 检测：非视频类型 + 视频时长过滤（自动重置）
-        if !videoTypes.contains(contentType) && durationFilter != nil {
+        if !videoTypes.contains(contentType) && contentType != .all && durationFilter != nil {
             warnings.append(NSLocalizedString("validation.warning.non_video_with_duration", comment: ""))
             // 保留新的内容类型，撤销旧的时长过滤
             autoResetActions.append(.resetDurationFilter)

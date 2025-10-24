@@ -56,27 +56,6 @@ class FilterLogicIntegrationTests: XCTestCase {
         }
     }
     
-    /// 测试场景：清理无GPS的旧自拍
-    func testScenario_OldSelfiesWithoutLocation() {
-        var config = FilterConfiguration()
-        config.contentType = .selfies
-        config.dateRange = .older1Year
-        config.locationFilter = .withoutLocation
-        config.excludeHidden = true
-        config.excludeFavorite = true
-        
-        let validation = config.validate()
-        XCTAssertTrue(validation.isValid, "配置应该有效")
-        
-        // 应该有自拍准确度建议
-        XCTAssertFalse(validation.suggestions.isEmpty)
-        XCTAssertTrue(validation.suggestions.joined().contains("70%"))
-        
-        let summary = config.summary
-        XCTAssertTrue(summary.contains("仅自拍"))
-        XCTAssertTrue(summary.contains("1 年前"))
-        XCTAssertTrue(summary.contains("无位置信息"))
-    }
     
     /// 测试场景：清理最近的短视频
     func testScenario_RecentShortVideos() {
@@ -145,7 +124,7 @@ class FilterLogicIntegrationTests: XCTestCase {
     
     /// 测试所有可能的矛盾组合
     func testAllConflictingCombinations() {
-        let imageTypes: [ContentType] = [.screenshots, .selfies, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
+        let imageTypes: [ContentType] = [.screenshots, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
         let durationFilters: [DurationFilterType] = [.shortVideos, .longVideos]
         
         var conflictCount = 0

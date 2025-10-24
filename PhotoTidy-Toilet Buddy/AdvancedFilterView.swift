@@ -470,10 +470,6 @@ struct AdvancedFilterView: View {
         // 处理需要后置过滤的条件
         var finalCount = fetchResult.count
         
-        // 处理自拍特殊逻辑（需要后置过滤）
-        if filterConfig.contentType == .selfies {
-            finalCount = try await countSelfies(from: fetchResult)
-        }
         
         // 处理位置信息过滤（需要后置过滤）
         if let locationFilter = filterConfig.locationFilter {
@@ -483,17 +479,6 @@ struct AdvancedFilterView: View {
         return finalCount
     }
     
-    /// 计算自拍照片数量（需要后置过滤）
-    private func countSelfies(from fetchResult: PHFetchResult<PHAsset>) async throws -> Int {
-        var selfieCount = 0
-        
-        // 简化实现：直接返回总数，不进行复杂的自拍检测
-        // 在实际应用中，自拍检测需要更复杂的逻辑
-        selfieCount = fetchResult.count
-        
-        AppLogger.shared.debug("自拍过滤后剩余 \(selfieCount) 张照片", category: .photo)
-        return selfieCount
-    }
     
     /// 计算满足位置信息条件的照片数量（需要后置过滤）
     private func countWithLocationFilter(from fetchResult: PHFetchResult<PHAsset>, locationFilter: LocationFilterType) async throws -> Int {

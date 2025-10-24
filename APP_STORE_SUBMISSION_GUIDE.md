@@ -146,7 +146,7 @@ Tired of "storage full" warnings? Overwhelmed by thousands of photos? Photo Tidy
   - Double-tap to zoom for details
 
 • Smart Filter System
-  - Filter by type: Screenshots, Selfies, Panoramas, Live Photos, etc.
+  - Filter by type: Screenshots, Panoramas, Live Photos, etc.
   - Exclude favorites and hidden photos
   - Customize review count (10-500 photos)
 
@@ -172,7 +172,6 @@ Tired of "storage full" warnings? Overwhelmed by thousands of photos? Photo Tidy
 
 • Free Up Storage: Quickly delete unwanted photos
 • Clean Screenshots: Organize large collections of screenshots
-• Curate Selfies: Pick your best from countless selfies
 • Regular Maintenance: Keep your library tidy with routine cleanups
 
 🌟 Highlights

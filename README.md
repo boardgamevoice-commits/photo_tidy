@@ -218,7 +218,6 @@ Detailed filtering options for photo selection:
 **Content Type Selection:**
 - All photos
 - Screenshots only
-- Selfies only
 - Panoramas only
 - Live Photos only
 - Portrait mode only

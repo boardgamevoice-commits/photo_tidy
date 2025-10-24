@@ -280,7 +280,6 @@
 enum ContentFilterType: String, CaseIterable {
     case all              // 所有照片
     case screenshots      // 仅截图
-    case selfies          // 仅自拍
     case panoramas        // 仅全景照片
     case livePhotos       // 仅 Live Photo
     case portraits        // 仅人像模式

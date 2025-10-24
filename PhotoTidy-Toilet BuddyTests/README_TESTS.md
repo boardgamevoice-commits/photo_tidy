@@ -209,11 +209,6 @@ testScenario_RecentSlowMotionLongVideos()
 ```
 验证：慢动作视频 AND 最近30天 AND 长视频
 
-### 场景 3：清理无GPS的旧自拍
-```swift
-testScenario_OldSelfiesWithoutLocation()
-```
-验证：自拍 AND 1年前 AND 无位置信息
 
 ### 场景 4：清理最近的短视频
 ```swift
@@ -238,13 +233,6 @@ testScenario_RecentShortVideos()
 
 ## ⚠️ 已知限制
 
-### 1. 自拍检测准确度
-```swift
-testSelfies_AlwaysHasSuggestion()
-```
-- 使用启发式规则
-- 准确度约 70%
-- 测试会验证提示信息存在
 
 ### 2. 视频位置信息
 ```swift

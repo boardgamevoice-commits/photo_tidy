@@ -91,7 +91,7 @@ class LegacyCompatibilityTests: XCTestCase {
     
     func testGetSubtypes_ReturnsEmptyForSpecialTypes() {
         // 需要特殊处理的类型应该返回空数组
-        let specialTypes: [ContentFilterType] = [.all, .selfies, .bursts, .videos]
+        let specialTypes: [ContentFilterType] = [.all, .bursts, .videos]
         
         for type in specialTypes {
             let subtypes = type.getSubtypes()
@@ -111,7 +111,7 @@ class LegacyCompatibilityTests: XCTestCase {
     }
     
     func testRequiresMediaTypeFilter_NonVideos() {
-        let nonVideoTypes: [ContentFilterType] = [.all, .screenshots, .selfies, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
+        let nonVideoTypes: [ContentFilterType] = [.all, .screenshots, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
         
         for type in nonVideoTypes {
             let mediaType = type.requiresMediaTypeFilter()
@@ -122,11 +122,6 @@ class LegacyCompatibilityTests: XCTestCase {
     // MARK: - 特殊标志测试
     
     func testIsSelfieFilter() {
-        XCTAssertTrue(ContentFilterType.selfies.isSelfieFilter)
-        
-        for type in ContentFilterType.allCases where type != .selfies {
-            XCTAssertFalse(type.isSelfieFilter, "\(type.displayName) 不应该标记为自拍过滤")
-        }
     }
     
     func testIsBurstFilter() {
@@ -158,7 +153,7 @@ class LegacyCompatibilityTests: XCTestCase {
     }
     
     func testGetDateFilter_ReturnsNilForNonDateTypes() {
-        let nonDateTypes: [ContentFilterType] = [.all, .screenshots, .selfies, .videos]
+        let nonDateTypes: [ContentFilterType] = [.all, .screenshots, .videos]
         
         for type in nonDateTypes {
             let dateFilter = type.getDateFilter()
@@ -207,7 +202,7 @@ class LegacyCompatibilityTests: XCTestCase {
     }
     
     func testGetDurationFilter_ReturnsNilForNonDurationTypes() {
-        let nonDurationTypes: [ContentFilterType] = [.all, .screenshots, .selfies, .videos]
+        let nonDurationTypes: [ContentFilterType] = [.all, .screenshots, .videos]
         
         for type in nonDurationTypes {
             let durationFilter = type.getDurationFilter()
@@ -265,7 +260,7 @@ class LegacyCompatibilityTests: XCTestCase {
     
     func testContentFilterType_CoversAllContentTypes() {
         // 验证新的 ContentType 都有对应的 ContentFilterType
-        let contentTypes: [ContentType] = [.all, .screenshots, .selfies, .panoramas, .livePhotos, .portraits, .bursts, .videos, .hdrPhotos, .slowMotionVideos, .timelapseVideos]
+        let contentTypes: [ContentType] = [.all, .screenshots, .panoramas, .livePhotos, .portraits, .bursts, .videos, .hdrPhotos, .slowMotionVideos, .timelapseVideos]
         
         for contentType in contentTypes {
             // 应该能找到对应的 ContentFilterType

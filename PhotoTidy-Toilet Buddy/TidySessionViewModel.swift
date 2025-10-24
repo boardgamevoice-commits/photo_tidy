@@ -265,12 +265,8 @@ class TidySessionViewModel: ObservableObject {
         // 获取所有符合条件的资源
         let allAssets = PHAsset.fetchAssets(with: fetchOptions)
         
-        // 自拍需要后置过滤（因为无法通过 predicate 直接查询）
-        var availableCount = allAssets.count
-        if filterConfig.contentType == .selfies {
-            // 自拍需要逐个检查，这里只做粗略估算
-            availableCount = Int(Double(availableCount) * 0.3) // 假设 30% 是自拍
-        }
+        // 获取符合条件的资源数量
+        let availableCount = allAssets.count
         
         AppLogger.shared.debug("验证参数：请求 \(count) 张，可用 \(availableCount) 张", category: .photo)
         

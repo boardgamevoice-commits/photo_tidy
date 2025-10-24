@@ -80,8 +80,6 @@
 "content.all.desc" = "选择所有类型的照片和视频";
 "content.screenshots" = "仅截图";
 "content.screenshots.desc" = "只选择截屏照片";
-"content.selfies" = "仅自拍";
-"content.selfies.desc" = "只选择前置摄像头拍摄的照片";
 "content.panoramas" = "仅全景照片";
 "content.panoramas.desc" = "只选择全景模式拍摄的照片";
 "content.live_photos" = "仅 Live Photo";
@@ -299,8 +297,9 @@
 "splash.step.initializing" = "正在初始化应用...";
 "splash.step.checking_permissions" = "正在检查照片权限...";
 "splash.step.preparing_library" = "正在准备照片库...";
-"splash.step.extracting_assets" = "正在提取照片资源...";
+"splash.step.initializing_services" = "正在初始化服务...";
 "splash.step.loading_interface" = "正在加载界面...";
+"splash.step_counter" = "步骤 %d / %d";
 "splash.description.main" = "正在为您准备最佳的照片整理体验";
 "splash.description.subtitle" = "首次启动可能需要几秒钟时间";
 

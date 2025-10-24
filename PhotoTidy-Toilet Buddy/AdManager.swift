@@ -54,7 +54,7 @@ class AdManager: NSObject {
     /// Load an interstitial ad
     /// Call this method to preload an ad before showing it
     func loadInterstitialAd() {
-        AppLogger.shared.info("开始加载插页式广告...", category: .network)
+        AppLogger.shared.debug("开始加载插页式广告...", category: .network)
         let request = GADRequest()
         
         GADInterstitialAd.load(withAdUnitID: interstitialAdUnitID, request: request) { [weak self] ad, error in
@@ -64,7 +64,7 @@ class AdManager: NSObject {
                 return
             }
             
-            AppLogger.shared.info("插页式广告加载成功", category: .network)
+            AppLogger.shared.debug("插页式广告加载成功", category: .network)
             self?.interstitialAd = ad
             self?.interstitialAd?.fullScreenContentDelegate = self
         }
@@ -100,7 +100,7 @@ class AdManager: NSObject {
     /// Load a rewarded ad
     /// Call this method to preload a rewarded ad before showing it
     func loadRewardedAd() {
-        AppLogger.shared.info("开始加载激励广告...", category: .network)
+        AppLogger.shared.debug("开始加载激励广告...", category: .network)
         let request = GADRequest()
         
         GADRewardedAd.load(withAdUnitID: rewardedAdUnitID, request: request) { [weak self] ad, error in
@@ -110,7 +110,7 @@ class AdManager: NSObject {
                 return
             }
             
-            AppLogger.shared.info("激励广告加载成功", category: .network)
+            AppLogger.shared.debug("激励广告加载成功", category: .network)
             self?.rewardedAd = ad
             self?.rewardedAd?.fullScreenContentDelegate = self
         }

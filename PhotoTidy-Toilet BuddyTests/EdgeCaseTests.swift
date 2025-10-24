@@ -55,10 +55,6 @@ class EdgeCaseTests: XCTestCase {
             
             let validation = config.validate()
             
-            // 只有自拍应该有建议（准确度提示）
-            if contentType == .selfies {
-                XCTAssertFalse(validation.suggestions.isEmpty)
-            }
         }
     }
     
@@ -109,38 +105,13 @@ class EdgeCaseTests: XCTestCase {
     
     // MARK: - 自拍特殊场景测试
     
-    func testSelfies_AlwaysHasSuggestion() {
-        let allDateRanges = [nil] + DateRangeType.allCases.map { Optional($0) }
-        
-        for dateRange in allDateRanges {
-            var config = FilterConfiguration()
-            config.contentType = .selfies
-            config.dateRange = dateRange
-            
-            let validation = config.validate()
-            
-            // 无论什么组合，都应该有准确度建议
-            XCTAssertFalse(validation.suggestions.isEmpty, "自拍应该始终有建议")
-            XCTAssertTrue(validation.suggestions.joined().contains("70%"))
-        }
-    }
     
-    func testSelfies_WithAllLocationFilters() {
-        for locationFilter in [nil] + LocationFilterType.allCases.map({ Optional($0) }) {
-            var config = FilterConfiguration()
-            config.contentType = .selfies
-            config.locationFilter = locationFilter
-            
-            let validation = config.validate()
-            XCTAssertFalse(validation.suggestions.isEmpty)
-        }
-    }
     
     // MARK: - 视频时长特殊场景测试
     
     func testDurationFilter_OnlyWithVideoTypes() {
         let videoTypes: [ContentType] = [.videos, .slowMotionVideos, .timelapseVideos]
-        let imageTypes: [ContentType] = [.screenshots, .selfies, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
+        let imageTypes: [ContentType] = [.screenshots, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
         
         // 视频类型 + 时长 = 有效
         for videoType in videoTypes {
@@ -438,7 +409,6 @@ class EdgeCaseTests: XCTestCase {
         // 连续修改
         config.contentType = .screenshots
         config.contentType = .videos
-        config.contentType = .selfies
         config.contentType = .panoramas
         
         // 最后的修改应该生效
@@ -562,13 +532,6 @@ class EdgeCaseTests: XCTestCase {
                 c.contentType = .slowMotionVideos
                 c.dateRange = .older1Year
                 c.durationFilter = .longVideos
-                return c
-            }(),
-            {
-                var c = FilterConfiguration()
-                c.contentType = .selfies
-                c.locationFilter = .withoutLocation
-                c.dateRange = .older2Years
                 return c
             }(),
             {

@@ -62,9 +62,6 @@ FilterLogicIntegrationTests.testScenario_RecentSlowMotionLongVideos()
 // 清理短视频
 FilterLogicIntegrationTests.testScenario_RecentShortVideos()
 
-// 清理自拍
-FilterLogicIntegrationTests.testScenario_OldSelfiesWithoutLocation()
-```
 
 ### 验证边界情况
 

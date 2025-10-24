@@ -90,7 +90,7 @@ class FilterConfigurationTests: XCTestCase {
     
     /// 测试矛盾配置 - 各种图片类型 + 视频时长
     func testConflictingConfiguration_AllImageTypesWithDuration() {
-        let imageTypes: [ContentType] = [.screenshots, .selfies, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
+        let imageTypes: [ContentType] = [.screenshots, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
         
         for imageType in imageTypes {
             var config = FilterConfiguration()
@@ -122,7 +122,6 @@ class FilterConfigurationTests: XCTestCase {
     /// 测试自拍配置的建议
     func testSelfieConfigurationSuggestion() {
         var config = FilterConfiguration()
-        config.contentType = .selfies
         
         let validation = config.validate()
         
@@ -375,7 +374,7 @@ class FilterConfigurationTests: XCTestCase {
     
     /// 测试所有图片类型与短视频的矛盾
     func testImageTypesConflictWithShortVideos() {
-        let imageTypes: [ContentType] = [.screenshots, .selfies, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
+        let imageTypes: [ContentType] = [.screenshots, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
         
         for imageType in imageTypes {
             var config = FilterConfiguration()
@@ -390,7 +389,7 @@ class FilterConfigurationTests: XCTestCase {
     
     /// 测试所有图片类型与长视频的矛盾
     func testImageTypesConflictWithLongVideos() {
-        let imageTypes: [ContentType] = [.screenshots, .selfies, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
+        let imageTypes: [ContentType] = [.screenshots, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
         
         for imageType in imageTypes {
             var config = FilterConfiguration()
@@ -474,29 +473,13 @@ class FilterConfigurationTests: XCTestCase {
         XCTAssertTrue(summary.contains("短视频"))
     }
     
-    /// 测试典型场景 4：清理无GPS的自拍
-    func testScenario_CleanSelfiesWithoutLocation() {
-        var config = FilterConfiguration()
-        config.contentType = .selfies
-        config.dateRange = .older1Year
-        config.locationFilter = .withoutLocation
-        
-        let validation = config.validate()
-        // 应该有自拍准确度建议
-        XCTAssertFalse(validation.suggestions.isEmpty)
-        
-        let summary = config.summary
-        XCTAssertTrue(summary.contains("仅自拍"))
-        XCTAssertTrue(summary.contains("1 年前"))
-        XCTAssertTrue(summary.contains("无位置信息"))
-    }
     
     // MARK: - 枚举完整性测试
     
     /// 测试 ContentType 枚举的完整性
     func testContentTypeEnumCompleteness() {
         let expectedTypes: [ContentType] = [
-            .all, .screenshots, .selfies, .panoramas, .livePhotos,
+            .all, .screenshots, .panoramas, .livePhotos,
             .portraits, .bursts, .videos, .hdrPhotos,
             .slowMotionVideos, .timelapseVideos
         ]
@@ -648,27 +631,6 @@ class FilterConfigurationTests: XCTestCase {
     }
     
     /// 测试自拍 + 各种组合
-    func testSelfiesWithVariousCombinations() {
-        let combinations: [(DateRangeType?, LocationFilterType?)] = [
-            (nil, nil),
-            (.recent30Days, nil),
-            (nil, .withLocation),
-            (.older1Year, .withoutLocation)
-        ]
-        
-        for (dateRange, locationFilter) in combinations {
-            var config = FilterConfiguration()
-            config.contentType = .selfies
-            config.dateRange = dateRange
-            config.locationFilter = locationFilter
-            
-            let validation = config.validate()
-            
-            // 自拍总是应该有准确度提示
-            XCTAssertFalse(validation.suggestions.isEmpty, "自拍应该有准确度建议")
-            XCTAssertTrue(validation.suggestions.first?.contains("70%") ?? false)
-        }
-    }
     
     /// 测试视频 + 时长的有效组合
     func testValidVideoWithDurationCombinations() {

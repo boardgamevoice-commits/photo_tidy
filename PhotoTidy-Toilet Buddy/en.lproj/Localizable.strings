@@ -80,8 +80,6 @@
 "content.all.desc" = "All types of photos and videos";
 "content.screenshots" = "Screenshots Only";
 "content.screenshots.desc" = "Screenshots only";
-"content.selfies" = "Selfies Only";
-"content.selfies.desc" = "Front camera photos only";
 "content.panoramas" = "Panoramas Only";
 "content.panoramas.desc" = "Panorama photos only";
 "content.live_photos" = "Live Photos Only";
@@ -299,8 +297,9 @@
 "splash.step.initializing" = "Initializing app...";
 "splash.step.checking_permissions" = "Checking photo permissions...";
 "splash.step.preparing_library" = "Preparing photo library...";
-"splash.step.extracting_assets" = "Extracting photo assets...";
+"splash.step.initializing_services" = "Initializing services...";
 "splash.step.loading_interface" = "Loading interface...";
+"splash.step_counter" = "Step %d / %d";
 "splash.description.main" = "Preparing the best photo organizing experience for you";
 "splash.description.subtitle" = "First launch may take a few seconds";
 

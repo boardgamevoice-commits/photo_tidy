@@ -23,7 +23,7 @@ struct SplashScreenView: View {
         NSLocalizedString("splash.step.initializing", comment: ""),
         NSLocalizedString("splash.step.checking_permissions", comment: ""),
         NSLocalizedString("splash.step.preparing_library", comment: ""),
-        NSLocalizedString("splash.step.extracting_assets", comment: ""),
+        NSLocalizedString("splash.step.initializing_services", comment: ""),
         NSLocalizedString("splash.step.loading_interface", comment: "")
     ]
     
@@ -80,17 +80,24 @@ struct SplashScreenView: View {
                             .scaleEffect(y: 2.0)
                             .frame(width: 200)
                         
-                        Text("\(Int(progress * 100))%")
+                        Text("\(String(format: "%.1f", progress * 100))%")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                     
                     // 当前步骤
-                    Text(loadingSteps[currentStep])
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.primary)
-                        .multilineTextAlignment(.center)
-                        .animation(.easeInOut(duration: 0.3), value: currentStep)
+                    VStack(spacing: 4) {
+                        Text(loadingSteps[currentStep])
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.primary)
+                            .multilineTextAlignment(.center)
+                            .animation(.easeInOut(duration: 0.3), value: currentStep)
+                        
+                        Text(String(format: NSLocalizedString("splash.step_counter", comment: ""), currentStep + 1, loadingSteps.count))
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .animation(.easeInOut(duration: 0.3), value: currentStep)
+                    }
                 }
                 
                 // 说明文字
@@ -119,42 +126,56 @@ struct SplashScreenView: View {
         let totalSteps = loadingSteps.count
         
         Task {
-            // 步骤 1-3: 模拟初始化
+            // 步骤 1-3: 模拟初始化，添加更细化的进度更新
             for step in 0..<3 {
+                // 步骤开始
                 await MainActor.run {
-                    withAnimation(.easeInOut(duration: 0.5)) {
-                        progress = Double(step + 1) / Double(totalSteps)
+                    withAnimation(.easeInOut(duration: 0.3)) {
                         currentStep = step
+                        progress = Double(step) / Double(totalSteps)
                     }
                 }
-                try? await Task.sleep(nanoseconds: UInt64(stepDuration * 1_000_000_000))
+                
+                // 步骤进行中，添加中间进度
+                try? await Task.sleep(nanoseconds: UInt64(stepDuration * 0.3 * 1_000_000_000))
+                
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        progress = (Double(step) + 0.5) / Double(totalSteps)
+                    }
+                }
+                
+                try? await Task.sleep(nanoseconds: UInt64(stepDuration * 0.7 * 1_000_000_000))
+                
+                // 步骤完成
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        progress = Double(step + 1) / Double(totalSteps)
+                    }
+                }
             }
             
-            // 步骤 4: 实际资源提取
+            // 步骤 4: 权限检查和初始化
             await MainActor.run {
-                withAnimation(.easeInOut(duration: 0.5)) {
+                withAnimation(.easeInOut(duration: 0.3)) {
                     currentStep = 3
+                    progress = 3.0 / Double(totalSteps)
                 }
             }
             
-            // 执行实际的资源提取
+            // 执行权限检查
             let photoService = PhotoService.shared
-            let defaultConfig = FilterConfiguration()
-            
-            let assets = await photoService.fetchRandomAssetsAsync(
-                count: 50, // 预提取一些照片
-                filterConfig: defaultConfig
-            ) { progress in
-                Task { @MainActor in
-                    // 更新资源提取进度
-                    self.extractionProgress = progress
-                    // 更新总进度（步骤3 + 资源提取进度）
-                    self.progress = (3.0 + progress) / Double(totalSteps)
-                }
-            }
+            let hasPermission = photoService.hasPhotoLibraryAccess()
             
             await MainActor.run {
-                self.extractedAssets = assets
+                self.extractionProgress = hasPermission ? 1.0 : 0.0
+                // 修复进度计算：步骤4完成时应该是4/5 = 0.8
+                self.progress = 4.0 / Double(totalSteps)
+            }
+            
+            // 设置空的资源数组，预提取将在主页进行
+            await MainActor.run {
+                self.extractedAssets = []
             }
             
             // 步骤 5: 完成

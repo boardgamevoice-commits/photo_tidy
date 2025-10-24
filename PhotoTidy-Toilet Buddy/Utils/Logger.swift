@@ -49,6 +49,24 @@ class AppLogger {
         #endif
     }
     
+    /// 是否启用 info 日志（生产环境可以减少）
+    private var isInfoEnabled: Bool {
+        #if DEBUG
+        return true
+        #else
+        return true  // 生产环境保留重要信息日志
+        #endif
+    }
+    
+    /// 是否启用网络相关日志（生产环境可以减少）
+    private var isNetworkLoggingEnabled: Bool {
+        #if DEBUG
+        return true
+        #else
+        return false  // 生产环境关闭网络日志
+        #endif
+    }
+    
     // MARK: - Initialization
     
     private init() {
@@ -94,6 +112,13 @@ class AppLogger {
         function: String = #function,
         line: Int = #line
     ) {
+        // 网络日志在生产环境下不输出
+        if category == .network && !isNetworkLoggingEnabled {
+            return
+        }
+        
+        guard isInfoEnabled else { return }
+        
         let fileName = (file as NSString).lastPathComponent
         let logMessage = "[\(fileName):\(line)] \(function) - \(message)"
         

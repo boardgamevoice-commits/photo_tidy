@@ -41,7 +41,7 @@ class ContentTypeTests: XCTestCase {
     // MARK: - ContentType 分类测试
     
     func testContentType_ImageTypes() {
-        let imageTypes: [ContentType] = [.screenshots, .selfies, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
+        let imageTypes: [ContentType] = [.screenshots, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
         
         XCTAssertEqual(imageTypes.count, 7, "应该有 7 种图片类型")
         
@@ -172,15 +172,6 @@ class ContentTypeTests: XCTestCase {
     
     // MARK: - 特殊类型测试
     
-    func testSelfiesType_AlwaysHasSuggestion() {
-        var config = FilterConfiguration()
-        config.contentType = .selfies
-        
-        let validation = config.validate()
-        
-        XCTAssertFalse(validation.suggestions.isEmpty, "自拍应该始终有建议提示")
-        XCTAssertTrue(validation.suggestions.joined().contains("启发式"))
-    }
     
     func testBurstsType_WithRecentDate() {
         var config = FilterConfiguration()
