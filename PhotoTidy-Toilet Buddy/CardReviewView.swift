@@ -71,7 +71,6 @@ class PreloadTaskManager: ObservableObject {
     private var runningTasks: Set<Int> = []
     
     // 添加并发控制
-    private let taskQueue = DispatchQueue(label: "com.phototidy.preload.taskmanager", attributes: .concurrent)
     private let stateLock = NSLock()
     
     /// 添加预加载任务（原子操作）
@@ -235,22 +234,6 @@ class PreloadTaskManager: ObservableObject {
     }
 }
 
-/// 分享结果处理
-class ShareResultHandler: ObservableObject {
-    @Published var showSuccessToast: Bool = false
-    @Published var showErrorAlert: Bool = false
-    @Published var errorMessage: String = ""
-    
-    func handleShareResult(completed: Bool, error: Error?) {
-        if let error = error {
-            errorMessage = error.localizedDescription
-            showErrorAlert = true
-        } else if completed {
-            showSuccessToast = true
-        }
-    }
-}
-
 /// 系统分享面板的SwiftUI封装
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
@@ -404,6 +387,12 @@ struct CardReviewView: View {
     @State private var dragOffset: CGSize = .zero
     @State private var isDragging: Bool = false
     
+    // 滑动速度检测
+    @State private var dragStartTime: Date?
+    @State private var dragStartLocation: CGPoint = .zero
+    @State private var lastDragLocation: CGPoint = .zero
+    @State private var lastDragTime: Date?
+    
     // 缩放状态 (A-01 双击放大 + 捏合缩放)
     @State private var isZoomed: Bool = false
     @State private var currentScale: CGFloat = 1.0
@@ -463,6 +452,12 @@ struct CardReviewView: View {
     
     private let dragThreshold: CGFloat = 100
     private let cardRotationFactor: Double = 0.05
+    
+    // 动态动画时长参数
+    private let minAnimationDuration: Double = 0.15  // 最快 150ms
+    private let maxAnimationDuration: Double = 0.5   // 最慢 500ms
+    private let baseAnimationDuration: Double = 0.3  // 基准 300ms
+    private let velocityThreshold: CGFloat = 1000   // 速度阈值 (points/second)
     
     // 动态计算最优缩略图尺寸（根据屏幕）
     private var optimalThumbnailSize: CGSize {
@@ -955,7 +950,9 @@ struct CardReviewView: View {
                             onMagnificationEnd: handleMagnificationEnd,
                             onPanEnd: handlePanEnd,
                             onDragEnd: handleDragEnd,
-                            onDoubleTap: handleDoubleTap
+                            onDoubleTap: handleDoubleTap,
+                            onDragStart: handleDragStart,
+                            onDragChanged: handleDragChanged
                         )
                 }
                 
@@ -1052,7 +1049,9 @@ struct CardReviewView: View {
                         onMagnificationEnd: handleMagnificationEnd,
                         onPanEnd: handlePanEnd,
                         onDragEnd: handleDragEnd,
-                        onDoubleTap: handleDoubleTap
+                        onDoubleTap: handleDoubleTap,
+                        onDragStart: handleDragStart,
+                        onDragChanged: handleDragChanged
                     )
             }
             
@@ -1077,7 +1076,7 @@ struct CardReviewView: View {
         HStack(spacing: 20) {
             // 上一张按钮（左侧）
             Button(action: {
-                slideToPrevious()
+                slideToPrevious() // 按钮点击使用默认时长
             }) {
                 VStack(spacing: 8) {
                     ZStack {
@@ -1175,7 +1174,7 @@ struct CardReviewView: View {
                     dismiss()
                 } else {
                     // 其他时候，点击下一张按钮
-                    slideToNext()
+                    slideToNext() // 按钮点击使用默认时长
                 }
             }) {
                 VStack(spacing: 8) {
@@ -1295,15 +1294,33 @@ struct CardReviewView: View {
     private func handleDragEnd(translation: CGSize) {
         isDragging = false
         
+        // 计算滑动速度
+        let velocity = getCurrentDragVelocity()
+        let animationDuration = calculateAnimationDuration(for: velocity)
+        
+        AppLogger.shared.debug("滑动结束: 速度=\(velocity) points/s, 动画时长=\(animationDuration)s", category: .ui)
+        
         // 左滑 - 下一张
         if translation.width < -dragThreshold {
-            slideToNext()
-            // 不重置dragOffset，让滑动动画处理
+            if viewModel.canMoveNext {
+                slideToNext(with: animationDuration)
+                // 不重置dragOffset，让滑动动画处理
+            } else {
+                // 最后一张照片，无法向左滑动，添加边界反弹效果
+                AppLogger.shared.debug("最后一张照片，无法向左滑动，添加边界反弹效果", category: .ui)
+                handleBoundaryBounce(direction: .left, duration: animationDuration)
+            }
         }
         // 右滑 - 上一张
         else if translation.width > dragThreshold {
-            slideToPrevious()
-            // 不重置dragOffset，让滑动动画处理
+            if viewModel.canMovePrevious {
+                slideToPrevious(with: animationDuration)
+                // 不重置dragOffset，让滑动动画处理
+            } else {
+                // 第一张照片，无法向右滑动，添加边界反弹效果
+                AppLogger.shared.debug("第一张照片，无法向右滑动，添加边界反弹效果", category: .ui)
+                handleBoundaryBounce(direction: .right, duration: animationDuration)
+            }
         }
         else {
             // 没有达到滑动阈值，重置偏移
@@ -1311,12 +1328,49 @@ struct CardReviewView: View {
                 dragOffset = .zero
             }
         }
+        
+        // 重置速度检测状态
+        dragStartTime = nil
+        dragStartLocation = .zero
+        lastDragLocation = .zero
+        lastDragTime = nil
+    }
+    
+    /// 处理拖拽开始
+    private func handleDragStart(location: CGPoint) {
+        dragStartTime = Date()
+        dragStartLocation = location
+        lastDragLocation = location
+        lastDragTime = Date()
+    }
+    
+    /// 处理拖拽变化
+    private func handleDragChanged(location: CGPoint) {
+        lastDragLocation = location
+        lastDragTime = Date()
+    }
+    
+    /// 处理边界反弹效果
+    private func handleBoundaryBounce(direction: SlideDirection, duration: Double) {
+        // 先稍微向边界方向移动，然后反弹回中心
+        let bounceOffset: CGFloat = direction == .left ? -30 : 30
+        
+        withAnimation(.spring(response: duration * 0.6, dampingFraction: 0.6)) {
+            dragOffset = CGSize(width: bounceOffset, height: 0)
+        }
+        
+        // 然后反弹回中心
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration * 0.6) {
+            withAnimation(.spring(response: duration * 0.4, dampingFraction: 0.8)) {
+                self.dragOffset = .zero
+            }
+        }
     }
     
     // MARK: - 滑动动画方法
     
     /// 滑动到上一张照片（防race condition）
-    private func slideToPrevious() {
+    private func slideToPrevious(with duration: Double = 0.3) {
         guard viewModel.canMovePrevious, !isTransitioning else { 
             AppLogger.shared.debug("滑动被阻止: canMovePrevious=\(viewModel.canMovePrevious), isTransitioning=\(isTransitioning)", category: .ui)
             return 
@@ -1331,26 +1385,26 @@ struct CardReviewView: View {
             self.previousImage = previousImage
             slideDirection = .right
             
-            // 执行滑动动画
-            withAnimation(.easeInOut(duration: 0.3)) {
+            // 执行滑动动画 - 使用动态时长
+            withAnimation(.easeInOut(duration: duration)) {
                 slideOffset = UIScreen.main.bounds.width
             }
             
-            // 动画完成后更新状态
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            // 动画完成后更新状态 - 使用动态时长
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
                 self.completeSlideTransition()
             }
         } else {
             // 没有预加载的图片，使用原来的方式
             isTransitioning = false // 重置状态
-            withAnimation(.spring(response: 0.3)) {
+            withAnimation(.spring(response: duration)) {
                 viewModel.moveToPreviousPhoto()
             }
         }
     }
     
     /// 滑动到下一张照片（防race condition）
-    private func slideToNext() {
+    private func slideToNext(with duration: Double = 0.3) {
         guard viewModel.canMoveNext, !isTransitioning else { 
             AppLogger.shared.debug("滑动被阻止: canMoveNext=\(viewModel.canMoveNext), isTransitioning=\(isTransitioning)", category: .ui)
             return 
@@ -1365,19 +1419,19 @@ struct CardReviewView: View {
             self.nextImage = nextImage
             slideDirection = .left
             
-            // 执行滑动动画
-            withAnimation(.easeInOut(duration: 0.3)) {
+            // 执行滑动动画 - 使用动态时长
+            withAnimation(.easeInOut(duration: duration)) {
                 slideOffset = -UIScreen.main.bounds.width
             }
             
-            // 动画完成后更新状态
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            // 动画完成后更新状态 - 使用动态时长
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
                 self.completeSlideTransition()
             }
         } else {
             // 没有预加载的图片，使用原来的方式
             isTransitioning = false // 重置状态
-            withAnimation(.spring(response: 0.3)) {
+            withAnimation(.spring(response: duration)) {
                 viewModel.moveToNextPhoto()
             }
         }
@@ -1957,6 +2011,64 @@ struct CardReviewView: View {
         }
     }
     
+    // MARK: - Dynamic Animation Duration Calculation
+    
+    /// 计算基于滑动速度的动态动画时长
+    /// - Parameter velocity: 滑动速度 (points/second)
+    /// - Returns: 动画时长 (seconds)
+    private func calculateAnimationDuration(for velocity: CGFloat) -> Double {
+        // 计算速度因子 (0.0 - 1.0)
+        let velocityFactor = min(abs(velocity) / velocityThreshold, 1.0)
+        
+        // 速度越快，动画时长越短
+        // 使用指数函数让快速滑动更明显
+        let speedFactor = pow(velocityFactor, 0.7)
+        
+        // 计算动态时长
+        let dynamicDuration = baseAnimationDuration - (baseAnimationDuration - minAnimationDuration) * speedFactor
+        
+        // 确保在合理范围内
+        return max(minAnimationDuration, min(maxAnimationDuration, dynamicDuration))
+    }
+    
+    /// 计算滑动速度
+    /// - Parameters:
+    ///   - startLocation: 开始位置
+    ///   - endLocation: 结束位置
+    ///   - startTime: 开始时间
+    ///   - endTime: 结束时间
+    /// - Returns: 滑动速度 (points/second)
+    private func calculateVelocity(
+        startLocation: CGPoint,
+        endLocation: CGPoint,
+        startTime: Date,
+        endTime: Date
+    ) -> CGFloat {
+        let distance = abs(endLocation.x - startLocation.x)
+        let timeInterval = endTime.timeIntervalSince(startTime)
+        
+        // 避免除零错误
+        guard timeInterval > 0 else { return 0 }
+        
+        return distance / CGFloat(timeInterval)
+    }
+    
+    /// 获取当前滑动速度
+    /// - Returns: 当前滑动速度 (points/second)
+    private func getCurrentDragVelocity() -> CGFloat {
+        guard let startTime = dragStartTime,
+              let lastTime = lastDragTime else {
+            return 0
+        }
+        
+        return calculateVelocity(
+            startLocation: dragStartLocation,
+            endLocation: lastDragLocation,
+            startTime: startTime,
+            endTime: lastTime
+        )
+    }
+    
     // MARK: - Helper Methods
     
     private func formatDate(_ date: Date?) -> String {
@@ -1974,14 +2086,6 @@ struct CardReviewView: View {
         return String(format: "%d:%02d", minutes, seconds)
     }
 }
-
-// MARK: - Supporting Views
-// 注意：支持视图已提取到独立文件：
-// - LivePhotoView.swift
-// - VideoPlayerControlView.swift
-// - MediaGestureModifiers.swift
-// - MediaTypes.swift
-// - SupportingViews.swift
 
 // MARK: - Preview
 

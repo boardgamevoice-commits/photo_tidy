@@ -298,18 +298,6 @@ class PhotoService: NSObject {
         return selectedAssets
     }
     
-    /// 异步使用分页处理提取资源（保留原方法以兼容）
-    private func fetchAssetsWithPaginationAsync(
-        from fetchResult: PHFetchResult<PHAsset>,
-        count: Int,
-        filterConfig: FilterConfiguration,
-        progressHandler: @escaping (Double) -> Void
-    ) async -> [PHAsset] {
-        
-        // 直接调用新的优化方法
-        return await fetchAllAndShuffle(from: fetchResult, count: count, progressHandler: progressHandler)
-    }
-    
     /// Fisher-Yates 洗牌算法实现（真正的随机洗牌）
     /// - Parameter array: 需要洗牌的数组
     /// - Returns: 洗牌后的数组

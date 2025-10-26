@@ -408,16 +408,14 @@ struct SettingsView: View {
     }
     
     private func openFeedback() {
-        // TODO: 实现反馈功能（邮件或者反馈表单）
         let email = "fangdev1063@gmail.com"
-        if let url = URL(string: "mailto:\(email)") {
+        if let url = URL(string: "mailto:\(email)?subject=PhotoTidy%20Feedback") {
             UIApplication.shared.open(url)
         }
     }
     
     private func openPrivacyPolicy() {
-        // TODO: 实现隐私政策页面
-        if let url = URL(string: "https://www.phototidy.app/privacy") {
+        if let url = URL(string: "https://phototidy.netlify.app/privacy") {
             UIApplication.shared.open(url)
         }
     }
