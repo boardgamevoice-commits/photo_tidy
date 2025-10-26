@@ -124,6 +124,30 @@ class TidySessionViewModel: ObservableObject {
     /// 广告显示阈值（每完成N次会话显示一次广告）
     private let adFrequency: Int = 3
     
+    // MARK: - Background Task Management
+    
+    /// 开始后台任务
+    /// - Parameter operation: 会话操作类型
+    /// - Returns: 是否成功开始后台任务
+    @discardableResult
+    private func beginBackgroundTask(for operation: SessionOperation) -> Bool {
+        return BackgroundTaskManager.shared.beginSessionOperation(operation)
+    }
+    
+    /// 结束后台任务
+    /// - Parameter operation: 会话操作类型
+    private func endBackgroundTask(for operation: SessionOperation) {
+        BackgroundTaskManager.shared.endSessionOperation(operation)
+    }
+    
+    /// 清理所有后台任务（在应用进入后台或对象销毁时调用）
+    func cleanupBackgroundTasks() {
+        // 清理所有会话操作相关的后台任务
+        for operation in SessionOperation.allCases {
+            endBackgroundTask(for: operation)
+        }
+    }
+    
     // MARK: - Computed Properties
     
     /// 当前照片对象
@@ -293,6 +317,14 @@ class TidySessionViewModel: ObservableObject {
         filterConfig: FilterConfiguration = FilterConfiguration()
     ) async {
         AppLogger.shared.info("开始新会话，请求 \(count) 张照片", category: .photo)
+        
+        // 开始后台任务以保护会话启动过程
+        _ = beginBackgroundTask(for: .startSession)
+        
+        defer {
+            // 确保在方法结束时结束后台任务
+            endBackgroundTask(for: .startSession)
+        }
         
         // 重置状态
         resetSession()
@@ -500,6 +532,9 @@ class TidySessionViewModel: ObservableObject {
         let totalCount = assetsToDelete.count
         AppLogger.shared.info("开始批量删除 \(totalCount) 张照片...", category: .photo)
         
+        // 开始后台任务以保护批量删除操作
+        _ = beginBackgroundTask(for: .executeDeletions)
+        
         // 报告初始进度
         progressHandler?(0, totalCount)
         
@@ -513,6 +548,9 @@ class TidySessionViewModel: ObservableObject {
             }
         ) { [weak self] success, error in
             guard let self = self else { return }
+            
+            // 结束后台任务
+            self.endBackgroundTask(for: .executeDeletions)
             
             Task { @MainActor in
                 if success {
@@ -626,6 +664,56 @@ class TidySessionViewModel: ObservableObject {
                     AppLogger.shared.warning("图片加载返回 nil", category: .photo)
                     continuation.resume(returning: nil)
                 }
+            }
+        }
+    }
+    
+    /// 渐进式加载照片（支持缩略图到高质量的平滑过渡）
+    /// - Parameters:
+    ///   - asset: PHAsset
+    ///   - targetSize: 目标尺寸
+    ///   - onThumbnail: 缩略图加载完成回调
+    ///   - onFinal: 最终高质量版本加载完成回调
+    func loadPhotoProgressive(
+        asset: PHAsset,
+        targetSize: CGSize,
+        onThumbnail: @escaping (UIImage?) -> Void,
+        onFinal: @escaping (UIImage?, Error?) -> Void
+    ) {
+        let requestOptions = PHImageRequestOptions()
+        requestOptions.deliveryMode = .opportunistic  // 支持渐进式加载
+        requestOptions.isNetworkAccessAllowed = true
+        requestOptions.isSynchronous = false
+        
+        PHImageManager.default().requestImage(
+            for: asset,
+            targetSize: targetSize,
+            contentMode: .aspectFit,
+            options: requestOptions
+        ) { image, info in
+            // 检查错误
+            if let error = info?[PHImageErrorKey] as? Error {
+                AppLogger.shared.error("图片加载失败", error: error, category: .photo)
+                onFinal(nil, error)
+                return
+            }
+            
+            // 检查是否被取消
+            if let cancelled = info?[PHImageCancelledKey] as? Bool, cancelled {
+                let error = NSError(domain: "PhotoLoad", code: -1, userInfo: [NSLocalizedDescriptionKey: "加载被取消"])
+                onFinal(nil, error)
+                return
+            }
+            
+            // 判断是缩略图还是最终高质量版本
+            if let degraded = info?[PHImageResultIsDegradedKey] as? Bool, degraded {
+                // 缩略图版本
+                AppLogger.shared.debug("收到缩略图", category: .photo)
+                onThumbnail(image)
+            } else {
+                // 最终高质量版本
+                AppLogger.shared.debug("收到高质量版本", category: .photo)
+                onFinal(image, nil)
             }
         }
     }

@@ -1494,6 +1494,8 @@ struct CardReviewView: View {
             currentLivePhoto = nil
             videoPlayer?.pause()
             videoPlayer = nil
+            // 停用音频会话
+            AudioSessionManager.shared.deactivateAudioSession()
             isPlayingVideo = false
             isPlayingLive = false
             return
@@ -1509,12 +1511,14 @@ struct CardReviewView: View {
                 // 有预加载缓存，直接使用，无需显示loading
                 AppLogger.shared.debug("使用预加载缓存，索引: \(currentIndex)", category: .photo)
                 
-                // 先清理旧的媒体状态
-                currentLivePhoto = nil
-                videoPlayer?.pause()
-                videoPlayer = nil
-                isPlayingVideo = false
-                isPlayingLive = false
+            // 先清理旧的媒体状态
+            currentLivePhoto = nil
+            videoPlayer?.pause()
+            videoPlayer = nil
+            // 停用音频会话
+            AudioSessionManager.shared.deactivateAudioSession()
+            isPlayingVideo = false
+            isPlayingLive = false
                 
                 // 直接设置图片，无loading状态
                 withAnimation(.easeIn(duration: 0.15)) {
@@ -1537,6 +1541,8 @@ struct CardReviewView: View {
         currentLivePhoto = nil
         videoPlayer?.pause()
         videoPlayer = nil
+        // 停用音频会话
+        AudioSessionManager.shared.deactivateAudioSession()
         isPlayingVideo = false
         isPlayingLive = false
         
@@ -1558,39 +1564,55 @@ struct CardReviewView: View {
         // 注意：预加载检查已移至 loadCurrentPhoto 方法中
         // 这里只处理没有预加载缓存的情况
         
-        // 启动加载任务
-        loadTask = Task { @MainActor in
-            do {
-                let image = try await viewModel.loadCurrentPhotoAsync(
-                    targetSize: optimalThumbnailSize,
-                    progressHandler: { progress in
-                        Task { @MainActor in
-                            self.loadProgress = progress
+        // 使用渐进式加载以支持 iCloud 照片先显示缩略图
+        var thumbnailShown = false
+        
+        viewModel.loadPhotoProgressive(
+            asset: asset,
+            targetSize: optimalThumbnailSize,
+            onThumbnail: { image in
+                Task { @MainActor in
+                    guard !Task.isCancelled else { return }
+                    
+                    // 只在第一次收到缩略图时显示
+                    if !thumbnailShown, let image = image {
+                        thumbnailShown = true
+                        AppLogger.shared.debug("显示缩略图", category: .photo)
+                        
+                        withAnimation(.easeIn(duration: 0.15)) {
+                            self.currentImage = image
+                            self.isLoadingImage = false  // 先隐藏 loading，立即显示缩略图
                         }
                     }
-                )
-                
-                guard !Task.isCancelled else {
-                    AppLogger.shared.debug("加载任务已取消", category: .photo)
-                    return
                 }
-                
-                if let image = image {
-                    withAnimation(.easeIn(duration: 0.2)) {
-                        self.currentImage = image
-                        self.isLoadingImage = false
-                        self.consecutiveFailures = 0
+            },
+            onFinal: { image, error in
+                Task { @MainActor in
+                    guard !Task.isCancelled else { return }
+                    
+                    if let error = error {
+                        AppLogger.shared.error("高质量照片加载失败", error: error, category: .photo)
+                        // 如果缩略图已经显示，就不需要再显示错误
+                        if !thumbnailShown {
+                            self.handleLoadFailure()
+                        }
+                    } else if let image = image {
+                        thumbnailShown = true  // 确保标记为已显示
+                        AppLogger.shared.info("显示高质量照片", category: .photo)
+                        
+                        // 更新为高质量版本（淡入动画）
+                        withAnimation(.easeIn(duration: 0.2)) {
+                            self.currentImage = image
+                            self.consecutiveFailures = 0
+                        }
+                    } else {
+                        if !thumbnailShown {
+                            self.handleLoadFailure()
+                        }
                     }
-                    AppLogger.shared.info("照片加载成功，索引: \(viewModel.currentIndex)", category: .photo)
-                } else {
-                    handleLoadFailure()
                 }
-            } catch {
-                guard !Task.isCancelled else { return }
-                AppLogger.shared.error("照片加载失败", error: error, category: .photo)
-                handleLoadFailure()
             }
-        }
+        )
     }
     
     /// 加载 Live Photo
@@ -1640,6 +1662,8 @@ struct CardReviewView: View {
         if let oldPlayer = videoPlayer {
             oldPlayer.pause()
             oldPlayer.replaceCurrentItem(with: nil)
+            // 停用音频会话
+            AudioSessionManager.shared.deactivateAudioSession()
             AppLogger.shared.debug("已清理旧视频播放器", category: .media)
         }
         
@@ -1654,6 +1678,13 @@ struct CardReviewView: View {
                 
                 if let playerItem = playerItem {
                     let player = AVPlayer(playerItem: playerItem)
+                    
+                    // 配置音频会话用于视频播放
+                    let audioSessionConfigured = AudioSessionManager.shared.configureForVideoPlayback()
+                    if !audioSessionConfigured {
+                        AppLogger.shared.warning("音频会话配置失败，视频播放可能有问题", category: .media)
+                    }
+                    
                     withAnimation(.easeIn(duration: 0.2)) {
                         self.videoPlayer = player
                         self.isLoadingImage = false
@@ -1775,6 +1806,8 @@ struct CardReviewView: View {
             player.pause()
             player.replaceCurrentItem(with: nil)
             videoPlayer = nil
+            // 停用音频会话
+            AudioSessionManager.shared.deactivateAudioSession()
             AppLogger.shared.debug("已清理视频播放器资源", category: .media)
         }
         

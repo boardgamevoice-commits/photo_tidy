@@ -248,7 +248,9 @@
 
 /* Validation Warnings and Suggestions */
 "validation.warning.image_with_duration" = "⚠️ Image types don't support video duration filters";
+"validation.warning.non_video_with_duration" = "⚠️ Non-video types don't support video duration filters";
 "validation.suggestion.remove_duration" = "Remove duration filter or select video type";
+"validation.suggestion.video_without_duration" = "💡 Suggestion: Add duration filter for video types for more precise results";
 "validation.suggestion.video_location" = "💡 Tip: Video location info may be less accurate than photos";
 "validation.suggestion.selfie_accuracy" = "💡 Selfie detection uses heuristic rules, ~70% accuracy";
 "validation.suggestion.burst_date_range" = "💡 Recent burst photos may be limited, consider expanding date range";

@@ -27,15 +27,18 @@
 		L82BA282EC0FB4C9F9B24856 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = LB82761FD75C2438F9F83B30 /* EmptyStateView.swift */; };
 		LF276D1C9303F45D19691880 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = L2388FAA8EE2A41BA88B5140 /* Localization.swift */; };
 		NEW00001000000000000001 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00002000000000000001 /* Logger.swift */; };
-		NEW00020000000000000001 /* PhotoCountCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00021000000000000001 /* PhotoCountCacheManager.swift */; };
-		NEW00022000000000000001 /* PaginatedPhotoProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00023000000000000001 /* PaginatedPhotoProcessor.swift */; };
 		NEW00003000000000000001 /* PredicateBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00004000000000000001 /* PredicateBuilder.swift */; };
 		NEW00005000000000000001 /* LivePhotoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00006000000000000001 /* LivePhotoView.swift */; };
 		NEW00007000000000000001 /* VideoPlayerControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00008000000000000001 /* VideoPlayerControlView.swift */; };
 		NEW00009000000000000001 /* MediaGestureModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00010000000000000001 /* MediaGestureModifiers.swift */; };
 		NEW00011000000000000001 /* MediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00012000000000000001 /* MediaTypes.swift */; };
-		NEW00013000000000000001 /* SupportingViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00014000000000000001 /* SupportingViews.swift */; };
+		NEW00013000000000000001 /* BuildFile in Sources */ = {isa = PBXBuildFile; };
+		NEW00020000000000000001 /* PhotoCountCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00021000000000000001 /* PhotoCountCacheManager.swift */; };
+		NEW00022000000000000001 /* PaginatedPhotoProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00023000000000000001 /* PaginatedPhotoProcessor.swift */; };
 		NEW00024000000000000001 /* SplashScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00025000000000000001 /* SplashScreenView.swift */; };
+		NEW00026000000000000001 /* AudioSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00027000000000000001 /* AudioSessionManager.swift */; };
+		NEW00028000000000000001 /* BackgroundTaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEW00029000000000000001 /* BackgroundTaskManager.swift */; };
+/* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		23A2E990B576D946BCCEC429 /* Pods-PhotoTidy-Toilet Buddy.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PhotoTidy-Toilet Buddy.debug.xcconfig"; path = "Target Support Files/Pods-PhotoTidy-Toilet Buddy/Pods-PhotoTidy-Toilet Buddy.debug.xcconfig"; sourceTree = "<group>"; };
@@ -63,14 +66,17 @@
 		L9F03AD94C1664952ADE46B8 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		LB82761FD75C2438F9F83B30 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		NEW00002000000000000001 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
-		NEW00021000000000000001 /* PhotoCountCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoCountCacheManager.swift; sourceTree = "<group>"; };
-		NEW00023000000000000001 /* PaginatedPhotoProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaginatedPhotoProcessor.swift; sourceTree = "<group>"; };
 		NEW00004000000000000001 /* PredicateBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PredicateBuilder.swift; sourceTree = "<group>"; };
 		NEW00006000000000000001 /* LivePhotoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePhotoView.swift; sourceTree = "<group>"; };
 		NEW00008000000000000001 /* VideoPlayerControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerControlView.swift; sourceTree = "<group>"; };
 		NEW00010000000000000001 /* MediaGestureModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGestureModifiers.swift; sourceTree = "<group>"; };
 		NEW00012000000000000001 /* MediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaTypes.swift; sourceTree = "<group>"; };
+		NEW00021000000000000001 /* PhotoCountCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoCountCacheManager.swift; sourceTree = "<group>"; };
+		NEW00023000000000000001 /* PaginatedPhotoProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaginatedPhotoProcessor.swift; sourceTree = "<group>"; };
 		NEW00025000000000000001 /* SplashScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashScreenView.swift; sourceTree = "<group>"; };
+		NEW00027000000000000001 /* AudioSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManager.swift; sourceTree = "<group>"; };
+		NEW00029000000000000001 /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskManager.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A1000011000000000000001 /* Frameworks */ = {
@@ -162,6 +168,8 @@
 				NEW00004000000000000001 /* PredicateBuilder.swift */,
 				NEW00021000000000000001 /* PhotoCountCacheManager.swift */,
 				NEW00023000000000000001 /* PaginatedPhotoProcessor.swift */,
+				NEW00027000000000000001 /* AudioSessionManager.swift */,
+				NEW00029000000000000001 /* BackgroundTaskManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -173,7 +181,6 @@
 				NEW00008000000000000001 /* VideoPlayerControlView.swift */,
 				NEW00010000000000000001 /* MediaGestureModifiers.swift */,
 				NEW00012000000000000001 /* MediaTypes.swift */,
-				NEW00014000000000000001 /* SupportingViews.swift */,
 				NEW00025000000000000001 /* SplashScreenView.swift */,
 			);
 			path = Views;
@@ -209,7 +216,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					A1000015000000000000001 = {
 						CreatedOnToolsVersion = 15.0;
@@ -317,8 +324,10 @@
 				NEW00007000000000000001 /* VideoPlayerControlView.swift in Sources */,
 				NEW00009000000000000001 /* MediaGestureModifiers.swift in Sources */,
 				NEW00011000000000000001 /* MediaTypes.swift in Sources */,
-				NEW00013000000000000001 /* SupportingViews.swift in Sources */,
+				NEW00013000000000000001 /* BuildFile in Sources */,
 				NEW00024000000000000001 /* SplashScreenView.swift in Sources */,
+				NEW00026000000000000001 /* AudioSessionManager.swift in Sources */,
+				NEW00028000000000000001 /* BackgroundTaskManager.swift in Sources */,
 				7A169A1967101CEE69C51CD9 /* ReviewDeletionsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -343,6 +352,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -373,6 +383,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = KFV95PX9HR;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -396,6 +407,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -406,6 +418,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -436,6 +449,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = KFV95PX9HR;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -452,6 +466,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -466,7 +481,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = KFV95PX9HR;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
@@ -479,7 +493,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.phototidy.toiletbuddy;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -497,7 +511,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = KFV95PX9HR;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
@@ -510,7 +523,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.phototidy.toiletbuddy;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

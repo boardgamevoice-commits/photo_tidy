@@ -64,6 +64,12 @@ struct VideoPlayerControlView: View {
     
     /// 设置视频播放器
     private func setupVideoPlayer() {
+        // 配置音频会话用于视频播放
+        let audioSessionConfigured = AudioSessionManager.shared.configureForVideoPlayback()
+        if !audioSessionConfigured {
+            AppLogger.shared.warning("音频会话配置失败，视频播放可能有问题", category: .media)
+        }
+        
         // 监听播放结束
         playbackObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
@@ -77,7 +83,7 @@ struct VideoPlayerControlView: View {
     }
     
     /// 清理视频播放器资源
-    /// 包括：暂停播放、移除观察者、清空播放项
+    /// 包括：暂停播放、移除观察者、清空播放项、停用音频会话
     private func cleanupVideoPlayer() {
         // 1. 暂停播放
         if isPlaying {
@@ -93,6 +99,9 @@ struct VideoPlayerControlView: View {
         
         // 3. 清空当前播放项，释放解码器和缓冲区
         player.replaceCurrentItem(with: nil)
+        
+        // 4. 停用音频会话
+        AudioSessionManager.shared.deactivateAudioSession()
         
         AppLogger.shared.media("视频播放器资源已完全释放", level: .debug)
     }

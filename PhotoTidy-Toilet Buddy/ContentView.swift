@@ -7,6 +7,8 @@
 
 import SwiftUI
 import Photos
+import UIKit
+import Combine
 
 struct ContentView: View {
     @StateObject private var viewModel = TidySessionViewModel()
@@ -36,6 +38,10 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, shouldApplyPadding ? (isIPad ? 40 : 16) : 0)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            // 当应用进入后台时，清理后台任务
+            viewModel.cleanupBackgroundTasks()
+        }
         .alert(L10n.Error.title, isPresented: Binding.constant(viewModel.errorMessage != nil)) {
             Button(L10n.Button.confirm) {
                 viewModel.errorMessage = nil

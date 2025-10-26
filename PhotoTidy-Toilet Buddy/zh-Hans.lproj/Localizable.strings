@@ -248,7 +248,9 @@
 
 /* 验证警告和建议 */
 "validation.warning.image_with_duration" = "⚠️ 图片类型不支持视频时长过滤";
+"validation.warning.non_video_with_duration" = "⚠️ 非视频类型不支持视频时长过滤";
 "validation.suggestion.remove_duration" = "移除时长过滤或选择视频类型";
+"validation.suggestion.video_without_duration" = "💡 建议：为视频类型添加时长过滤以获得更精确的结果";
 "validation.suggestion.video_location" = "💡 提示：视频的位置信息可能不如照片准确";
 "validation.suggestion.selfie_accuracy" = "💡 自拍检测使用启发式规则，准确度约 70%";
 "validation.suggestion.burst_date_range" = "💡 最近的连拍照片可能较少，建议扩大日期范围";

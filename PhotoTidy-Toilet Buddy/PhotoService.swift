@@ -31,6 +31,8 @@ class PhotoService: NSObject {
     deinit {
         // 取消注册
         PHPhotoLibrary.shared().unregisterChangeObserver(self)
+        // 清理后台任务
+        cleanupBackgroundTasks()
     }
     
     // MARK: - 权限管理
@@ -113,6 +115,30 @@ class PhotoService: NSObject {
         }
     }
     
+    // MARK: - 后台任务管理
+    
+    /// 开始后台任务
+    /// - Parameter operation: 照片操作类型
+    /// - Returns: 是否成功开始后台任务
+    @discardableResult
+    private func beginBackgroundTask(for operation: PhotoOperation) -> Bool {
+        return BackgroundTaskManager.shared.beginPhotoOperation(operation)
+    }
+    
+    /// 结束后台任务
+    /// - Parameter operation: 照片操作类型
+    private func endBackgroundTask(for operation: PhotoOperation) {
+        BackgroundTaskManager.shared.endPhotoOperation(operation)
+    }
+    
+    /// 清理所有后台任务（在应用进入后台或对象销毁时调用）
+    func cleanupBackgroundTasks() {
+        // 清理所有照片操作相关的后台任务
+        for operation in PhotoOperation.allCases {
+            endBackgroundTask(for: operation)
+        }
+    }
+    
     // MARK: - 随机选取照片
     
     /// 异步随机选取符合条件的照片资源
@@ -129,6 +155,14 @@ class PhotoService: NSObject {
         
         return await withCheckedContinuation { continuation in
             Task {
+                // 开始后台任务以保护长时间运行的照片获取操作
+                _ = beginBackgroundTask(for: .fetchAssets)
+                
+                defer {
+                    // 确保在方法结束时结束后台任务
+                    endBackgroundTask(for: .fetchAssets)
+                }
+                
                 // 1. 使用 PredicateBuilder 构造 PHFetchOptions
                 let fetchOptions = PHFetchOptions()
                 
@@ -249,11 +283,17 @@ class PhotoService: NSObject {
         
         AppLogger.shared.photo("准备删除照片，ID: \(identifier)")
         
+        // 开始后台任务以保护删除操作
+        _ = beginBackgroundTask(for: .deleteAsset)
+        
         PHPhotoLibrary.shared().performChanges {
             // 执行删除操作
             PHAssetChangeRequest.deleteAssets([asset] as NSArray)
             
-        } completionHandler: { success, error in
+        } completionHandler: { [weak self] success, error in
+            // 结束后台任务
+            self?.endBackgroundTask(for: .deleteAsset)
+            
             DispatchQueue.main.async {
                 if success {
                     AppLogger.shared.photo("照片删除成功，ID: \(identifier)")
@@ -284,6 +324,9 @@ class PhotoService: NSObject {
         let totalCount = assets.count
         AppLogger.shared.photo("准备批量删除 \(totalCount) 张照片")
         
+        // 开始后台任务以保护批量删除操作
+        _ = beginBackgroundTask(for: .deleteAssets)
+        
         // 报告初始进度
         progressHandler?(0, totalCount)
         
@@ -293,14 +336,22 @@ class PhotoService: NSObject {
                 assets: assets,
                 batchSize: 20,
                 progressHandler: progressHandler,
-                completion: completion
+                completion: { [weak self] success, error in
+                    // 结束后台任务
+                    self?.endBackgroundTask(for: .deleteAssets)
+                    completion(success, error)
+                }
             )
         } else {
             // 少量照片直接删除
             deleteAssetsDirectly(
                 assets: assets,
                 progressHandler: progressHandler,
-                completion: completion
+                completion: { [weak self] success, error in
+                    // 结束后台任务
+                    self?.endBackgroundTask(for: .deleteAssets)
+                    completion(success, error)
+                }
             )
         }
     }
