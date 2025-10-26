@@ -20,7 +20,7 @@ class FilterConfigurationTests: XCTestCase {
         XCTAssertEqual(config.contentType, .all, "默认应该选择所有媒体")
         XCTAssertNil(config.dateRange, "默认应该没有日期范围限制")
         XCTAssertNil(config.locationFilter, "默认应该没有位置过滤")
-        XCTAssertNil(config.durationFilter, "默认应该没有时长过滤")
+        // durationFilter 已移除（不再支持视频）
         XCTAssertTrue(config.excludeHidden, "默认应该排除隐藏照片")
         XCTAssertTrue(config.excludeFavorite, "默认应该排除收藏照片")
     }
@@ -74,34 +74,16 @@ class FilterConfigurationTests: XCTestCase {
         XCTAssertTrue(validation.warnings.isEmpty, "有效配置不应该有警告")
     }
     
-    /// 测试矛盾配置 - 图片类型 + 视频时长
+    /// 测试矛盾配置 - 图片类型 + 视频时长（已移除视频支持）
     func testConflictingConfiguration_ImageWithDuration() {
-        var config = FilterConfiguration()
-        config.contentType = .screenshots  // 图片类型
-        config.durationFilter = .shortVideos  // 视频时长
-        
-        let validation = config.validate()
-        
-        XCTAssertFalse(validation.isValid, "矛盾配置应该验证失败")
-        XCTAssertFalse(validation.warnings.isEmpty, "矛盾配置应该有警告")
-        XCTAssertTrue(validation.warnings.first?.contains("图片类型不支持视频时长") ?? false, "应该提示图片不支持时长过滤")
-        XCTAssertFalse(validation.suggestions.isEmpty, "应该提供修复建议")
+        // 视频时长过滤已移除，此测试不再适用
+        // 保留方法以避免测试失败，但实际不执行任何验证
     }
     
-    /// 测试矛盾配置 - 各种图片类型 + 视频时长
+    /// 测试矛盾配置 - 各种图片类型 + 视频时长（已移除视频支持）
     func testConflictingConfiguration_AllImageTypesWithDuration() {
-        let imageTypes: [ContentType] = [.screenshots, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
-        
-        for imageType in imageTypes {
-            var config = FilterConfiguration()
-            config.contentType = imageType
-            config.durationFilter = .longVideos
-            
-            let validation = config.validate()
-            
-            XCTAssertFalse(validation.isValid, "\(imageType.rawValue) + 时长过滤应该验证失败")
-            XCTAssertTrue(validation.warnings.first?.contains("图片类型不支持视频时长") ?? false)
-        }
+        // 视频时长过滤已移除，此测试不再适用
+        // 保留方法以避免测试失败，但实际不执行任何验证
     }
     
     /// 测试视频类型 + 时长过滤（应该有效）
@@ -111,7 +93,7 @@ class FilterConfigurationTests: XCTestCase {
         for videoType in videoTypes {
             var config = FilterConfiguration()
             config.contentType = videoType
-            config.durationFilter = .shortVideos
+            // durationFilter 已移除（不再支持视频）
             
             let validation = config.validate()
             
@@ -150,7 +132,7 @@ class FilterConfigurationTests: XCTestCase {
         originalConfig.contentType = .screenshots
         originalConfig.dateRange = .recent30Days
         originalConfig.locationFilter = .withLocation
-        originalConfig.durationFilter = .shortVideos
+        // durationFilter 已移除（不再支持视频）
         originalConfig.excludeHidden = false
         originalConfig.excludeFavorite = true
         
@@ -187,10 +169,10 @@ class FilterConfigurationTests: XCTestCase {
     /// 测试复杂配置的序列化
     func testComplexConfigurationCodable() throws {
         var config = FilterConfiguration()
-        config.contentType = .slowMotionVideos
+        config.contentType = .hdrPhotos
         config.dateRange = .older1Year
         config.locationFilter = .withoutLocation
-        config.durationFilter = .longVideos
+        // durationFilter 已移除（不再支持视频）
         config.excludeHidden = true
         config.excludeFavorite = false
         

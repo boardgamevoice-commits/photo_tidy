@@ -1183,10 +1183,8 @@ enum ContentType: String, Codable, CaseIterable, Identifiable {
     case livePhotos
     case portraits
     case bursts
-    case videos
     case hdrPhotos
-    case slowMotionVideos
-    case timelapseVideos
+    // 视频类型已移除：videos, slowMotionVideos, timelapseVideos
     
     var id: String { rawValue }
     
@@ -1198,10 +1196,7 @@ enum ContentType: String, Codable, CaseIterable, Identifiable {
         case .livePhotos: return NSLocalizedString("content.live_photos", comment: "")
         case .portraits: return NSLocalizedString("content.portraits", comment: "")
         case .bursts: return NSLocalizedString("content.bursts", comment: "")
-        case .videos: return NSLocalizedString("content.videos", comment: "")
         case .hdrPhotos: return NSLocalizedString("content.hdr_photos", comment: "")
-        case .slowMotionVideos: return NSLocalizedString("content.slow_motion_videos", comment: "")
-        case .timelapseVideos: return NSLocalizedString("content.timelapse_videos", comment: "")
         }
     }
     
@@ -1213,10 +1208,7 @@ enum ContentType: String, Codable, CaseIterable, Identifiable {
         case .livePhotos: return "livephoto"
         case .portraits: return "person.fill"
         case .bursts: return "square.stack.3d.up"
-        case .videos: return "video.fill"
         case .hdrPhotos: return "circle.lefthalf.filled"
-        case .slowMotionVideos: return "slowmo"
-        case .timelapseVideos: return "timelapse"
         }
     }
     
@@ -1228,10 +1220,7 @@ enum ContentType: String, Codable, CaseIterable, Identifiable {
         case .livePhotos: return NSLocalizedString("content.live_photos.desc", comment: "")
         case .portraits: return NSLocalizedString("content.portraits.desc", comment: "")
         case .bursts: return NSLocalizedString("content.bursts.desc", comment: "")
-        case .videos: return NSLocalizedString("content.videos.desc", comment: "")
         case .hdrPhotos: return NSLocalizedString("content.hdr_photos.desc", comment: "")
-        case .slowMotionVideos: return NSLocalizedString("content.slow_motion_videos.desc", comment: "")
-        case .timelapseVideos: return NSLocalizedString("content.timelapse_videos.desc", comment: "")
         }
     }
 }
@@ -1270,33 +1259,14 @@ enum DateRangeType: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-/// 视频时长（可选）
-enum DurationFilterType: String, Codable, CaseIterable, Identifiable {
-    case shortVideos
-    case longVideos
-    
-    var id: String { rawValue }
-    
-    var localizedName: String {
-        switch self {
-        case .shortVideos: return NSLocalizedString("duration.short_videos", comment: "")
-        case .longVideos: return NSLocalizedString("duration.long_videos", comment: "")
-        }
-    }
-    
-    var icon: String {
-        switch self {
-        case .shortVideos: return "film"
-        case .longVideos: return "film.stack"
-        }
-    }
-}
+/// 视频时长（已移除，不再支持视频类型）
+// enum DurationFilterType 已移除
 
-/// 过滤配置（支持多维度组合）
+/// 过滤配置（支持多维度组合，已移除视频相关过滤）
 struct FilterConfiguration: Codable, Equatable {
     var contentType: ContentType = .all
     var dateRange: DateRangeType? = nil
-    var durationFilter: DurationFilterType? = nil
+    // durationFilter 已移除（不再支持视频）
     var locationFilter: LocationFilterType? = nil
     var excludeHidden: Bool = true
     var excludeFavorite: Bool = true
@@ -1313,9 +1283,7 @@ struct FilterConfiguration: Codable, Equatable {
             parts.append(dateRange.localizedName)
         }
         
-        if let durationFilter = durationFilter {
-            parts.append(durationFilter.localizedName)
-        }
+        // durationFilter 已移除（不再支持视频）
         
         if let locationFilter = locationFilter {
             parts.append(locationFilter.localizedName)
@@ -1334,32 +1302,18 @@ struct FilterConfiguration: Codable, Equatable {
     
     /// 验证配置是否有效
     func validate() -> ValidationResult {
-        var warnings: [String] = []
-        var suggestions: [String] = []
-        var autoResetActions: [AutoResetAction] = []
+        let warnings: [String] = []
+        let suggestions: [String] = []
+        let autoResetActions: [AutoResetAction] = []
         
-        // 检测矛盾配置：图片类型 + 视频时长过滤
-        let imageTypes: [ContentType] = [.screenshots, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
-        if imageTypes.contains(contentType) && durationFilter != nil {
-            warnings.append(NSLocalizedString("validation.warning.image_with_duration", comment: ""))
-            suggestions.append(NSLocalizedString("validation.suggestion.remove_duration", comment: ""))
-            // 保留新的内容类型，撤销旧的时长过滤
-            autoResetActions.append(.resetDurationFilter)
-        }
+        // 检测矛盾配置：图片类型 + 视频时长过滤（已移除视频支持）
+        // 视频时长过滤已移除，无需验证
         
-        // 检测：视频类型 + 非视频时长过滤（自动重置）
-        let videoTypes: [ContentType] = [.videos, .slowMotionVideos, .timelapseVideos]
-        if videoTypes.contains(contentType) && durationFilter == nil {
-            // 视频类型但没有时长过滤，建议添加
-            suggestions.append(NSLocalizedString("validation.suggestion.video_without_duration", comment: ""))
-        }
+        // 检测：视频类型（已移除，无需验证）
+        // 视频类型已移除，无需验证
         
-        // 检测：非视频类型 + 视频时长过滤（自动重置）
-        if !videoTypes.contains(contentType) && contentType != .all && durationFilter != nil {
-            warnings.append(NSLocalizedString("validation.warning.non_video_with_duration", comment: ""))
-            // 保留新的内容类型，撤销旧的时长过滤
-            autoResetActions.append(.resetDurationFilter)
-        }
+        // 检测：非视频类型 + 视频时长过滤（已移除视频支持）
+        // 视频时长过滤已移除，无需验证
         
         return ValidationResult(
             isValid: warnings.isEmpty,
@@ -1382,27 +1336,13 @@ struct FilterConfiguration: Codable, Equatable {
         return fixedConfig
     }
     
-    /// 当用户选择视频时长时，自动设置内容类型为所有媒体
-    mutating func handleDurationSelection(_ duration: DurationFilterType?) {
-        if duration != nil {
-            // 如果当前内容类型与视频时长冲突，自动设置为所有媒体
-            let imageTypes: [ContentType] = [.screenshots, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
-            if imageTypes.contains(contentType) {
-                contentType = .all
-            }
-        }
-        durationFilter = duration
-    }
+    // handleDurationSelection 方法已移除（不再支持视频）
     
     /// 当用户选择内容类型时，检查是否需要撤销视频时长
     mutating func handleContentTypeSelection(_ type: ContentType) {
         contentType = type
         
-        // 如果新选择的内容类型与视频时长冲突，自动撤销视频时长
-        let imageTypes: [ContentType] = [.screenshots, .panoramas, .livePhotos, .portraits, .hdrPhotos, .bursts]
-        if imageTypes.contains(type) && durationFilter != nil {
-            durationFilter = nil
-        }
+        // 视频时长过滤已移除，无需处理冲突
     }
     
     /// 验证结果
@@ -1420,16 +1360,13 @@ struct FilterConfiguration: Codable, Equatable {
         }
     }
     
-    /// 自动重置动作
+    /// 自动重置动作（已移除视频相关）
     enum AutoResetAction {
-        case resetDurationFilter
         case resetDateRange
         case resetContentType(ContentType)
         
         var description: String {
             switch self {
-            case .resetDurationFilter:
-                return NSLocalizedString("auto_reset.duration_filter", comment: "Removed video duration filter")
             case .resetDateRange:
                 return NSLocalizedString("auto_reset.date_range", comment: "Removed date range filter")
             case .resetContentType(let type):
@@ -1439,8 +1376,6 @@ struct FilterConfiguration: Codable, Equatable {
         
         func apply(to config: inout FilterConfiguration) {
             switch self {
-            case .resetDurationFilter:
-                config.durationFilter = nil
             case .resetDateRange:
                 config.dateRange = nil
             case .resetContentType(let newType):

@@ -21,30 +21,12 @@ class PredicateBuilder {
         
         switch contentType {
         case .all:
-            // 所有媒体：图片和视频
-            let mediaTypePredicate = NSPredicate(format: "mediaType == %d OR mediaType == %d",
-                                                PHAssetMediaType.image.rawValue,
-                                                PHAssetMediaType.video.rawValue)
+            // 所有媒体：仅图片（已过滤视频）
+            let mediaTypePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
             predicates.append(mediaTypePredicate)
-            AppLogger.shared.debug("内容类型：所有媒体", category: .photo)
+            AppLogger.shared.debug("内容类型：所有图片（已过滤视频）", category: .photo)
             
-        case .videos, .slowMotionVideos, .timelapseVideos:
-            // 视频类型
-            let videoPredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.video.rawValue)
-            predicates.append(videoPredicate)
-            
-            // 视频子类型
-            if contentType == .slowMotionVideos {
-                let slowMoPredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.videoHighFrameRate.rawValue)
-                predicates.append(slowMoPredicate)
-                AppLogger.shared.debug("内容类型：慢动作视频", category: .media)
-            } else if contentType == .timelapseVideos {
-                let timelapsePredicate = NSPredicate(format: "(mediaSubtypes & %d) != 0", PHAssetMediaSubtype.videoTimelapse.rawValue)
-                predicates.append(timelapsePredicate)
-                AppLogger.shared.debug("内容类型：延时摄影", category: .media)
-            } else {
-                AppLogger.shared.debug("内容类型：所有视频", category: .media)
-            }
+        // 视频类型已移除，不再处理
             
         case .screenshots:
             let imagePredicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
@@ -173,28 +155,7 @@ class PredicateBuilder {
         }
     }
     
-    // MARK: - Duration Predicates
-    
-    /// 构建视频时长过滤 Predicates
-    static func buildDurationPredicates(_ durationFilter: DurationFilterType?) -> [NSPredicate]? {
-        guard let durationFilter = durationFilter else { return nil }
-        
-        var predicates: [NSPredicate] = []
-        
-        switch durationFilter {
-        case .shortVideos:
-            let predicate = NSPredicate(format: "duration > 0 AND duration <= %f", 30.0)
-            predicates.append(predicate)
-            AppLogger.shared.debug("视频时长：短视频 (<30秒)", category: .media)
-            
-        case .longVideos:
-            let predicate = NSPredicate(format: "duration >= %f", 300.0)
-            predicates.append(predicate)
-            AppLogger.shared.debug("视频时长：长视频 (>5分钟)", category: .media)
-        }
-        
-        return predicates.isEmpty ? nil : predicates
-    }
+    // MARK: - Duration Predicates (已移除视频支持)
     
     // MARK: - Combined Predicate Builder
     
@@ -219,10 +180,8 @@ class PredicateBuilder {
             predicates.append(locationPredicate)
         }
         
-        // 维度 4: 视频时长
-        if let durationPredicates = buildDurationPredicates(filterConfig.durationFilter) {
-            predicates.append(contentsOf: durationPredicates)
-        }
+        // 维度 4: 视频时长（已移除视频支持）
+        // 视频时长过滤已移除，无需处理
         
         // 维度 5: 其他过滤
         if filterConfig.excludeHidden {

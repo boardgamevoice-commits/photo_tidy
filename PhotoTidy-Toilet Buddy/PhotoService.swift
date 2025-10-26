@@ -141,7 +141,7 @@ class PhotoService: NSObject {
     
     // MARK: - 随机选取照片
     
-    /// 异步随机选取符合条件的照片资源
+    /// 异步随机选取符合条件的照片资源（优化版本）
     /// - Parameters:
     ///   - count: 需要选取的照片数量
     ///   - filterConfig: 过滤配置
@@ -166,49 +166,51 @@ class PhotoService: NSObject {
                 // 1. 使用 PredicateBuilder 构造 PHFetchOptions
                 let fetchOptions = PHFetchOptions()
                 
-                // 使用统一的 PredicateBuilder
+                // 使用统一的 PredicateBuilder（已过滤视频）
                 fetchOptions.predicate = PredicateBuilder.buildCombinedPredicate(from: filterConfig)
-                
-                // 注意：PHFetchOptions 不支持直接预取元数据属性
-                // 元数据访问优化通过确保在后台线程进行来实现
                 
                 // 按创建日期降序排列（可选，用于调试）
                 fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
                 
                 // 2. 获取所有符合条件的资源
                 let fetchResult = PHAsset.fetchAssets(with: fetchOptions)
+                let totalCount = fetchResult.count
                 
-                AppLogger.shared.info("找到 \(fetchResult.count) 个符合条件的照片", category: .photo)
+                AppLogger.shared.info("找到 \(totalCount) 个符合条件的图片", category: .photo)
                 
                 // 如果没有资源，直接返回空数组
-                guard fetchResult.count > 0 else {
-                    AppLogger.shared.warning("没有找到符合条件的照片", category: .photo)
+                guard totalCount > 0 else {
+                    AppLogger.shared.warning("没有找到符合条件的图片", category: .photo)
                     continuation.resume(returning: [])
                     return
                 }
                 
-                // 3. 使用异步分页处理提取资源
-                let assets = await fetchAssetsWithPaginationAsync(
-                    from: fetchResult,
-                    count: count,
-                    filterConfig: filterConfig,
-                    progressHandler: progressHandler
-                )
+                // 3. 智能选择策略
+                let assets: [PHAsset]
+                if totalCount <= count * 2 {
+                    // 小照片库：直接遍历全部
+                    AppLogger.shared.debug("小照片库模式：直接遍历 \(totalCount) 张图片", category: .photo)
+                    assets = await fetchAllAndShuffle(from: fetchResult, count: count, progressHandler: progressHandler)
+                } else {
+                    // 大照片库：采样优化
+                    let sampleSize = min(count * 3, totalCount)
+                    AppLogger.shared.debug("大照片库模式：从 \(totalCount) 张图片中采样 \(sampleSize) 张", category: .photo)
+                    assets = await sampleAndShuffle(from: fetchResult, sampleSize: sampleSize, targetCount: count, progressHandler: progressHandler)
+                }
                 
                 continuation.resume(returning: assets)
             }
         }
     }
     
-    /// 异步使用分页处理提取资源
-    private func fetchAssetsWithPaginationAsync(
+    /// 直接遍历全部照片并洗牌（小照片库模式）
+    private func fetchAllAndShuffle(
         from fetchResult: PHFetchResult<PHAsset>,
         count: Int,
-        filterConfig: FilterConfiguration,
         progressHandler: @escaping (Double) -> Void
     ) async -> [PHAsset] {
         
-        AppLogger.shared.debug("开始异步提取资源，总数: \(fetchResult.count)", category: .photo)
+        AppLogger.shared.debug("开始直接遍历全部照片，总数: \(fetchResult.count)", category: .photo)
         
         var allAssets: [PHAsset] = []
         let totalCount = fetchResult.count
@@ -219,13 +221,11 @@ class PhotoService: NSObject {
             let startIndex = batchIndex * batchSize
             let endIndex = min(startIndex + batchSize, totalCount)
             
-            AppLogger.shared.debug("异步处理批次 \(batchIndex + 1): 索引 \(startIndex) 到 \(endIndex - 1)", category: .photo)
+            AppLogger.shared.debug("处理批次 \(batchIndex + 1): 索引 \(startIndex) 到 \(endIndex - 1)", category: .photo)
             
             // 处理当前批次
             for index in startIndex..<endIndex {
                 let asset = fetchResult.object(at: index)
-                
-                
                 allAssets.append(asset)
             }
             
@@ -237,12 +237,10 @@ class PhotoService: NSObject {
             await Task.yield()
         }
         
-        AppLogger.shared.debug("异步分页处理完成，提取了 \(allAssets.count) 个资源", category: .photo)
+        AppLogger.shared.debug("直接遍历完成，提取了 \(allAssets.count) 个资源", category: .photo)
         
         // 执行 Fisher-Yates 洗牌算法
         let shuffledAssets = fisherYatesShuffle(array: allAssets)
-        
-        AppLogger.shared.debug("Fisher-Yates 洗牌完成", category: .photo)
         
         // 取前 N 个
         let selectedCount = min(count, shuffledAssets.count)
@@ -251,6 +249,65 @@ class PhotoService: NSObject {
         AppLogger.shared.info("选取了 \(selectedAssets.count) 个随机照片", category: .photo)
         
         return selectedAssets
+    }
+    
+    /// 采样并洗牌（大照片库模式，支持早期终止）
+    private func sampleAndShuffle(
+        from fetchResult: PHFetchResult<PHAsset>,
+        sampleSize: Int,
+        targetCount: Int,
+        progressHandler: @escaping (Double) -> Void
+    ) async -> [PHAsset] {
+        
+        AppLogger.shared.debug("开始采样模式，从 \(fetchResult.count) 张照片中采样 \(sampleSize) 张", category: .photo)
+        
+        var sampledAssets: [PHAsset] = []
+        let totalCount = fetchResult.count
+        let step = max(1, totalCount / sampleSize)
+        
+        // 均匀采样，支持早期终止
+        for i in stride(from: 0, to: totalCount, by: step) {
+            // 早期终止：如果已经采样足够多的照片，可以提前结束
+            if sampledAssets.count >= sampleSize { 
+                AppLogger.shared.debug("早期终止：已采样 \(sampledAssets.count) 张照片", category: .photo)
+                break 
+            }
+            
+            let asset = fetchResult.object(at: i)
+            sampledAssets.append(asset)
+            
+            // 更新进度
+            let progress = Double(sampledAssets.count) / Double(sampleSize)
+            progressHandler(progress)
+            
+            // 让出主线程
+            await Task.yield()
+        }
+        
+        AppLogger.shared.debug("采样完成，采样了 \(sampledAssets.count) 张照片", category: .photo)
+        
+        // Fisher-Yates洗牌
+        let shuffled = fisherYatesShuffle(array: sampledAssets)
+        
+        // 取前N个
+        let selectedCount = min(targetCount, shuffled.count)
+        let selectedAssets = Array(shuffled.prefix(selectedCount))
+        
+        AppLogger.shared.info("采样模式选取了 \(selectedAssets.count) 个随机照片", category: .photo)
+        
+        return selectedAssets
+    }
+    
+    /// 异步使用分页处理提取资源（保留原方法以兼容）
+    private func fetchAssetsWithPaginationAsync(
+        from fetchResult: PHFetchResult<PHAsset>,
+        count: Int,
+        filterConfig: FilterConfiguration,
+        progressHandler: @escaping (Double) -> Void
+    ) async -> [PHAsset] {
+        
+        // 直接调用新的优化方法
+        return await fetchAllAndShuffle(from: fetchResult, count: count, progressHandler: progressHandler)
     }
     
     /// Fisher-Yates 洗牌算法实现（真正的随机洗牌）

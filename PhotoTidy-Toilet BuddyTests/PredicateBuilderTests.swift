@@ -22,11 +22,12 @@ final class PredicateBuilderTests: XCTestCase {
         let predicates = PredicateBuilder.buildContentTypePredicates(contentType)
         
         // Then
-        XCTAssertEqual(predicates.count, 1, "应该有1个predicate用于所有媒体")
+        XCTAssertEqual(predicates.count, 1, "应该有1个predicate用于所有图片（已过滤视频）")
         
-        // 验证predicate包含图片和视频类型
+        // 验证predicate只包含图片类型
         let predicate = predicates.first!
         XCTAssertTrue(predicate.predicateFormat.contains("mediaType"))
+        XCTAssertTrue(predicate.predicateFormat.contains("\(PHAssetMediaType.image.rawValue)"))
     }
     
     func testBuildContentTypePredicates_Screenshots() {
@@ -48,7 +49,7 @@ final class PredicateBuilderTests: XCTestCase {
         let predicates = PredicateBuilder.buildContentTypePredicates(contentType)
         
         // Then
-        XCTAssertEqual(predicates.count, 1, "应该有1个predicate用于视频类型")
+        XCTAssertEqual(predicates.count, 0, "视频类型不再支持，应该返回空数组")
     }
     
     // MARK: - Date Range Tests
@@ -129,7 +130,7 @@ final class PredicateBuilderTests: XCTestCase {
         XCTAssertNil(predicate, "nil输入应该返回nil")
     }
     
-    // MARK: - Duration Tests
+    // MARK: - Duration Tests (已移除视频支持)
     
     func testBuildDurationPredicates_ShortVideos() {
         // Given
@@ -139,9 +140,7 @@ final class PredicateBuilderTests: XCTestCase {
         let predicates = PredicateBuilder.buildDurationPredicates(durationFilter)
         
         // Then
-        XCTAssertNotNil(predicates)
-        XCTAssertEqual(predicates?.count, 1)
-        XCTAssertTrue(predicates?.first?.predicateFormat.contains("duration") ?? false)
+        XCTAssertNil(predicates, "视频时长过滤不再支持，应该返回nil")
     }
     
     func testBuildDurationPredicates_LongVideos() {
@@ -152,8 +151,7 @@ final class PredicateBuilderTests: XCTestCase {
         let predicates = PredicateBuilder.buildDurationPredicates(durationFilter)
         
         // Then
-        XCTAssertNotNil(predicates)
-        XCTAssertEqual(predicates?.count, 1)
+        XCTAssertNil(predicates, "视频时长过滤不再支持，应该返回nil")
     }
     
     // MARK: - Combined Predicate Tests
@@ -215,7 +213,7 @@ final class PredicateBuilderTests: XCTestCase {
         config.contentType = .livePhotos
         config.dateRange = .thisYear
         config.locationFilter = .withoutLocation
-        config.durationFilter = .shortVideos // 虽然逻辑上矛盾，但应该能构建
+        // durationFilter 已移除（不再支持视频）
         config.excludeHidden = true
         config.excludeFavorite = true
         

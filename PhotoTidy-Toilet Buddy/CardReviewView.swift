@@ -70,10 +70,29 @@ class PreloadTaskManager: ObservableObject {
     private let maxConcurrentTasks = 3
     private var runningTasks: Set<Int> = []
     
-    /// 添加预加载任务
+    // 添加并发控制
+    private let taskQueue = DispatchQueue(label: "com.phototidy.preload.taskmanager", attributes: .concurrent)
+    private let stateLock = NSLock()
+    
+    /// 添加预加载任务（原子操作）
     func addTask(index: Int, priority: PreloadPriority, task: Task<Void, Never>) {
-        // 取消已存在的任务
-        cancelTask(at: index)
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        
+        // 检查是否已存在相同或更高优先级的任务
+        if let existingTask = tasks[index] {
+            // 如果新任务优先级更高，取消旧任务
+            if priority.rawValue < existingTask.priority.rawValue {
+                existingTask.task.cancel()
+                tasks.removeValue(forKey: index)
+                runningTasks.remove(index)
+                AppLogger.shared.debug("取消低优先级任务: 索引=\(index)", category: .photo)
+            } else {
+                // 新任务优先级不更高，忽略
+                AppLogger.shared.debug("忽略低优先级任务: 索引=\(index)", category: .photo)
+                return
+            }
+        }
         
         let preloadTask = PreloadTask(index: index, priority: priority, task: task)
         tasks[index] = preloadTask
@@ -84,8 +103,11 @@ class PreloadTaskManager: ObservableObject {
         AppLogger.shared.debug("添加预加载任务: 索引=\(index), 优先级=\(priority.description)", category: .photo)
     }
     
-    /// 取消指定索引的任务
+    /// 取消指定索引的任务（原子操作）
     func cancelTask(at index: Int) {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        
         if let existingTask = tasks[index] {
             existingTask.task.cancel()
             tasks.removeValue(forKey: index)
@@ -94,8 +116,11 @@ class PreloadTaskManager: ObservableObject {
         }
     }
     
-    /// 更新任务状态
+    /// 更新任务状态（原子操作）
     func updateTaskStatus(at index: Int, status: PreloadTaskStatus) {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        
         if var task = tasks[index] {
             task.status = status
             
@@ -115,7 +140,7 @@ class PreloadTaskManager: ObservableObject {
         }
     }
     
-    /// 尝试启动下一个任务
+    /// 尝试启动下一个任务（原子操作）
     private func tryStartNextTask() {
         // 如果已达到最大并发数，不启动新任务
         guard runningTasks.count < maxConcurrentTasks else {
@@ -132,9 +157,11 @@ class PreloadTaskManager: ObservableObject {
                 break
             }
             
-            // 启动任务
+            // 启动任务（在锁内执行）
             runningTasks.insert(task.index)
-            updateTaskStatus(at: task.index, status: .running)
+            var updatedTask = task
+            updatedTask.status = .running
+            tasks[task.index] = updatedTask
             
             // 异步执行任务
             Task {
@@ -149,8 +176,11 @@ class PreloadTaskManager: ObservableObject {
         updateTaskStatus(at: preloadTask.index, status: .completed)
     }
     
-    /// 取消所有任务
+    /// 取消所有任务（原子操作）
     func cancelAllTasks() {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        
         for (index, task) in tasks {
             task.task.cancel()
             AppLogger.shared.debug("取消所有预加载任务: 索引=\(index)", category: .photo)
@@ -159,22 +189,49 @@ class PreloadTaskManager: ObservableObject {
         runningTasks.removeAll()
     }
     
-    /// 获取任务统计信息
+    /// 检查指定索引是否有任务（原子操作）
+    func hasTask(at index: Int) -> Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return tasks[index] != nil
+    }
+    
+    /// 获取任务统计信息（原子操作）
     func getTaskStats() -> (pending: Int, running: Int, total: Int) {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        
         let pending = tasks.values.filter { $0.status == .pending }.count
         let running = runningTasks.count
         let total = tasks.count
         return (pending, running, total)
     }
     
-    /// 检查是否有指定索引的任务
-    func hasTask(at index: Int) -> Bool {
-        return tasks[index] != nil
+    
+    /// 检查是否有指定索引的缓存（原子操作）
+    func hasCachedImage(at index: Int) -> Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return tasks[index]?.status == .completed
     }
     
-    /// 检查是否有指定索引的缓存
-    func hasCachedImage(at index: Int) -> Bool {
-        return tasks[index]?.status == .completed
+    /// 取消低优先级任务，为高优先级任务腾出空间（原子操作）
+    func cancelLowPriorityTasks(for newIndex: Int) {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        
+        let tasksToCancel = tasks.values.filter { task in
+            // 取消距离新索引较远的低优先级任务
+            let distance = abs(task.index - newIndex)
+            return distance > 2 && task.priority.rawValue >= PreloadPriority.medium.rawValue
+        }
+        
+        for task in tasksToCancel {
+            task.task.cancel()
+            tasks.removeValue(forKey: task.index)
+            runningTasks.remove(task.index)
+            AppLogger.shared.debug("取消低优先级任务: 索引=\(task.index), 距离=\(abs(task.index - newIndex))", category: .photo)
+        }
     }
 }
 
@@ -1258,16 +1315,21 @@ struct CardReviewView: View {
     
     // MARK: - 滑动动画方法
     
-    /// 滑动到上一张照片
+    /// 滑动到上一张照片（防race condition）
     private func slideToPrevious() {
-        guard viewModel.canMovePrevious, !isTransitioning else { return }
+        guard viewModel.canMovePrevious, !isTransitioning else { 
+            AppLogger.shared.debug("滑动被阻止: canMovePrevious=\(viewModel.canMovePrevious), isTransitioning=\(isTransitioning)", category: .ui)
+            return 
+        }
+        
+        // 原子性地设置过渡状态
+        isTransitioning = true
         
         // 获取上一张照片
         let previousIndex = viewModel.currentIndex - 1
         if let previousImage = preloadedImages[previousIndex] {
             self.previousImage = previousImage
             slideDirection = .right
-            isTransitioning = true
             
             // 执行滑动动画
             withAnimation(.easeInOut(duration: 0.3)) {
@@ -1280,22 +1342,28 @@ struct CardReviewView: View {
             }
         } else {
             // 没有预加载的图片，使用原来的方式
+            isTransitioning = false // 重置状态
             withAnimation(.spring(response: 0.3)) {
                 viewModel.moveToPreviousPhoto()
             }
         }
     }
     
-    /// 滑动到下一张照片
+    /// 滑动到下一张照片（防race condition）
     private func slideToNext() {
-        guard viewModel.canMoveNext, !isTransitioning else { return }
+        guard viewModel.canMoveNext, !isTransitioning else { 
+            AppLogger.shared.debug("滑动被阻止: canMoveNext=\(viewModel.canMoveNext), isTransitioning=\(isTransitioning)", category: .ui)
+            return 
+        }
+        
+        // 原子性地设置过渡状态
+        isTransitioning = true
         
         // 获取下一张照片
         let nextIndex = viewModel.currentIndex + 1
         if let nextImage = preloadedImages[nextIndex] {
             self.nextImage = nextImage
             slideDirection = .left
-            isTransitioning = true
             
             // 执行滑动动画
             withAnimation(.easeInOut(duration: 0.3)) {
@@ -1308,18 +1376,19 @@ struct CardReviewView: View {
             }
         } else {
             // 没有预加载的图片，使用原来的方式
+            isTransitioning = false // 重置状态
             withAnimation(.spring(response: 0.3)) {
                 viewModel.moveToNextPhoto()
             }
         }
     }
     
-    /// 完成滑动过渡
+    /// 完成滑动过渡（防race condition）
     private func completeSlideTransition() {
         // 保存滑动方向，因为后面会重置
         let direction = slideDirection
         
-        // 先重置动画状态，避免触发loadCurrentPhoto
+        // 原子性地重置动画状态
         slideOffset = 0
         slideDirection = .none
         isTransitioning = false
@@ -1342,6 +1411,8 @@ struct CardReviewView: View {
         } else if direction == .right {
             viewModel.moveToPreviousPhoto()
         }
+        
+        AppLogger.shared.debug("滑动过渡完成，方向: \(direction), 新索引: \(viewModel.currentIndex)", category: .ui)
     }
     
     // MARK: - 缩放手势处理
@@ -1715,10 +1786,19 @@ struct CardReviewView: View {
     
     // MARK: - 预加载与缓存管理
     
-    /// 预加载后续照片
+    /// 预加载后续照片（防race condition）
     private func preloadNextPhotos() {
         let currentIndex = viewModel.currentIndex
         let totalPhotos = viewModel.totalPhotos
+        
+        // 防止在过渡期间启动预加载
+        guard !isTransitioning else {
+            AppLogger.shared.debug("跳过预加载：正在过渡中", category: .photo)
+            return
+        }
+        
+        // 先取消低优先级任务，为新的预加载腾出空间
+        taskManager.cancelLowPriorityTasks(for: currentIndex)
         
         // 预加载前1张 + 后面2张照片，使用优先级管理
         var preloadIndices: [(index: Int, priority: PreloadPriority)] = []
@@ -1746,13 +1826,28 @@ struct CardReviewView: View {
                 continue
             }
             
-            // 创建预加载任务
+            // 创建预加载任务（防race condition）
             let task = Task { @MainActor in
+                // 检查任务是否已被取消
+                guard !Task.isCancelled else { 
+                    taskManager.updateTaskStatus(at: index, status: .cancelled)
+                    return 
+                }
+                
+                // 再次检查索引是否仍然有效
+                guard index >= 0 && index < viewModel.totalPhotos else {
+                    taskManager.updateTaskStatus(at: index, status: .cancelled)
+                    return
+                }
+                
                 if let image = await viewModel.loadPhotoAsync(at: index, targetSize: optimalThumbnailSize) {
+                    // 最终检查任务是否被取消
                     guard !Task.isCancelled else { 
                         taskManager.updateTaskStatus(at: index, status: .cancelled)
                         return 
                     }
+                    
+                    // 原子性地更新预加载缓存
                     preloadedImages[index] = image
                     taskManager.updateTaskStatus(at: index, status: .completed)
                     AppLogger.shared.debug("预加载完成，索引: \(index), 优先级: \(priority.description)", category: .photo)
@@ -1775,17 +1870,19 @@ struct CardReviewView: View {
     }
     
     
-    /// 清理过期的缓存
+    /// 清理过期的缓存（防race condition）
     private func cleanupOldCache(currentIndex: Int) {
         // 保留前1张 + 当前 + 后2张，清理距离超过2张的缓存
         let keysToRemove = preloadedImages.keys.filter { abs($0 - currentIndex) > 2 }
+        
         for key in keysToRemove {
-            preloadedImages.removeValue(forKey: key)
+            // 先取消任务，再清理缓存
             taskManager.cancelTask(at: key)
+            preloadedImages.removeValue(forKey: key)
         }
         
         if !keysToRemove.isEmpty {
-            AppLogger.shared.debug("清理过期缓存: \(keysToRemove.count) 张", category: .photo)
+            AppLogger.shared.debug("清理过期缓存: \(keysToRemove.count) 张, 当前索引: \(currentIndex)", category: .photo)
         }
     }
     

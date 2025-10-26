@@ -45,8 +45,7 @@ struct AdvancedFilterView: View {
                 // 日期范围选择
                 dateRangeSection
                 
-                // 视频时长选择
-                durationSection
+                // 视频时长选择已移除（不再支持视频）
                 
                 // 其他选项
                 otherOptionsSection
@@ -173,44 +172,7 @@ struct AdvancedFilterView: View {
         }
     }
     
-    // MARK: - Duration Section
-    
-    private var durationSection: some View {
-        Section {
-            // 不限选项
-            FilterOptionRow(
-                icon: "infinity",
-                title: L10n.Filter.unlimited,
-                description: L10n.Filter.unlimitedDuration,
-                isSelected: tempConfig.durationFilter == nil,
-                photoCount: nil
-            ) {
-                withAnimation(.spring(response: 0.3)) {
-                    tempConfig.handleDurationSelection(nil)
-                }
-            }
-            
-            ForEach(DurationFilterType.allCases) { duration in
-                FilterOptionRow(
-                    icon: duration.icon,
-                    title: duration.localizedName,
-                    description: "",
-                    isSelected: tempConfig.durationFilter == duration,
-                    photoCount: nil
-                ) {
-                    withAnimation(.spring(response: 0.3)) {
-                        tempConfig.handleDurationSelection(duration)
-                    }
-                }
-            }
-        } header: {
-            SectionHeaderView(icon: "film", title: L10n.Filter.duration)
-        } footer: {
-            Text(L10n.Filter.selectDuration)
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-    }
+    // MARK: - Duration Section (已移除，不再支持视频)
     
     // MARK: - Other Options Section
     

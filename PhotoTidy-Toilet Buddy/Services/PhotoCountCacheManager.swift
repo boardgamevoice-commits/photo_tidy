@@ -158,7 +158,7 @@ extension FilterConfiguration {
         hasher.combine(contentType)
         hasher.combine(dateRange)
         hasher.combine(locationFilter)
-        hasher.combine(durationFilter)
+        // durationFilter 已移除（不再支持视频）
         hasher.combine(excludeHidden)
         hasher.combine(excludeFavorite)
         return hasher.finalize()
