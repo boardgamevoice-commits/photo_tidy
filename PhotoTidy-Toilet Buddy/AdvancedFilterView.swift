@@ -19,19 +19,12 @@ struct AdvancedFilterView: View {
     // MARK: - State
     
     @State private var tempConfig: FilterConfiguration
-    @State private var combinedFilterCount: PhotoCountResult = .calculating
-    @State private var countCalculationTask: Task<Void, Never>?
     
     // 自动修复相关状态
     @State private var lastValidConfig: FilterConfiguration
     @State private var showAutoResetNotification: Bool = false
     @State private var autoResetMessage: String = ""
     @State private var autoResetActions: [FilterConfiguration.AutoResetAction] = []
-    
-    // 各个条件的照片数量 - 使用字典来存储每个具体选项的数量
-    @State private var contentTypeCounts: [ContentType: PhotoCountResult] = [:]
-    @State private var dateRangeCounts: [DateRangeType?: PhotoCountResult] = [:]
-    @State private var durationCounts: [DurationFilterType?: PhotoCountResult] = [:]
     
     // MARK: - Initialization
     
@@ -91,13 +84,6 @@ struct AdvancedFilterView: View {
                 }
             }
         }
-        .onAppear {
-            calculateCombinedFilterCount()
-            calculateIndividualCounts()
-        }
-        .onDisappear {
-            cancelCombinedFilterCountCalculation()
-        }
         .onChange(of: tempConfig) { newConfig in
             // 检测冲突并自动修复
             let validation = newConfig.validate()
@@ -119,9 +105,6 @@ struct AdvancedFilterView: View {
                 // 无冲突，更新最后有效配置
                 lastValidConfig = newConfig
             }
-            
-            calculateCombinedFilterCount()
-            calculateIndividualCounts()
         }
     }
     
@@ -135,7 +118,7 @@ struct AdvancedFilterView: View {
                     title: type.localizedName,
                     description: type.description,
                     isSelected: tempConfig.contentType == type,
-                    photoCount: contentTypeCounts[type]
+                    photoCount: nil
                 ) {
                     withAnimation(.spring(response: 0.3)) {
                         tempConfig.handleContentTypeSelection(type)
@@ -161,7 +144,7 @@ struct AdvancedFilterView: View {
                 title: L10n.Filter.unlimited,
                 description: L10n.Filter.unlimitedTime,
                 isSelected: tempConfig.dateRange == nil,
-                photoCount: dateRangeCounts[nil]
+                photoCount: nil
             ) {
                 withAnimation(.spring(response: 0.3)) {
                     tempConfig.dateRange = nil
@@ -174,7 +157,7 @@ struct AdvancedFilterView: View {
                     title: dateRange.localizedName,
                     description: "",
                     isSelected: tempConfig.dateRange == dateRange,
-                    photoCount: dateRangeCounts[dateRange]
+                    photoCount: nil
                 ) {
                     withAnimation(.spring(response: 0.3)) {
                         tempConfig.dateRange = dateRange
@@ -200,7 +183,7 @@ struct AdvancedFilterView: View {
                 title: L10n.Filter.unlimited,
                 description: L10n.Filter.unlimitedDuration,
                 isSelected: tempConfig.durationFilter == nil,
-                photoCount: durationCounts[nil]
+                photoCount: nil
             ) {
                 withAnimation(.spring(response: 0.3)) {
                     tempConfig.handleDurationSelection(nil)
@@ -213,7 +196,7 @@ struct AdvancedFilterView: View {
                     title: duration.localizedName,
                     description: "",
                     isSelected: tempConfig.durationFilter == duration,
-                    photoCount: durationCounts[duration]
+                    photoCount: nil
                 ) {
                     withAnimation(.spring(response: 0.3)) {
                         tempConfig.handleDurationSelection(duration)
@@ -304,48 +287,6 @@ struct AdvancedFilterView: View {
                             .fill(Color.blue.opacity(0.1))
                     )
                 
-                // 满足所有条件的照片数量
-                HStack(spacing: 8) {
-                    Image(systemName: "photo.stack.fill")
-                        .foregroundColor(.green)
-                        .font(.system(size: 16))
-                    
-                    Text(NSLocalizedString("photo.count.meets_all_conditions", comment: ""))
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    
-                    Spacer()
-                    
-                    switch combinedFilterCount {
-                    case .calculating:
-                        HStack(spacing: 4) {
-                            ProgressView()
-                                .scaleEffect(0.7)
-                        Text(NSLocalizedString("photo.count.calculating", comment: ""))
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                        }
-                    case .success(let count):
-                        Text("\(count)" + NSLocalizedString("photo.count.photos", comment: ""))
-                            .font(.subheadline)
-                            .fontWeight(.bold)
-                            .foregroundColor(.green)
-                    case .error:
-                        Text(NSLocalizedString("photo.count.error", comment: ""))
-                            .font(.caption)
-                            .foregroundColor(.red)
-                    }
-                }
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.green.opacity(0.1))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.green.opacity(0.3), lineWidth: 1)
-                        )
-                )
-                
                 // 自动修复通知
                 if showAutoResetNotification {
                     AutoResetNotificationView(
@@ -415,262 +356,6 @@ struct AdvancedFilterView: View {
         }
     }
     
-    // MARK: - Combined Filter Count Calculation
-    
-    /// 计算满足所有组合条件的照片数量
-    private func calculateCombinedFilterCount() {
-        // 取消之前的计算任务
-        countCalculationTask?.cancel()
-        
-        countCalculationTask = Task {
-            // 在后台线程开始计算
-            await MainActor.run {
-                combinedFilterCount = .calculating
-            }
-            
-            do {
-                // 在后台线程执行计算
-                let count = try await performPhotoCountCalculation(filterConfig: tempConfig)
-                if !Task.isCancelled {
-                    // 在主线程更新UI
-                    await MainActor.run {
-                        combinedFilterCount = .success(count)
-                        AppLogger.shared.debug("高级过滤页面照片数量计算完成: \(count)张", category: .ui)
-                    }
-                }
-            } catch {
-                if !Task.isCancelled {
-                    // 在主线程更新UI
-                    await MainActor.run {
-                        combinedFilterCount = .error(error.localizedDescription)
-                        AppLogger.shared.error("高级过滤页面照片数量计算失败: \(error)", category: .ui)
-                    }
-                }
-            }
-        }
-    }
-    
-    /// 执行照片数量计算
-    private func performPhotoCountCalculation(filterConfig: FilterConfiguration) async throws -> Int {
-        // 检查权限
-        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
-        guard status == .authorized || status == .limited else {
-            throw PhotoCountError.permissionDenied
-        }
-        
-        // 构建查询条件
-        let fetchOptions = PHFetchOptions()
-        fetchOptions.predicate = PredicateBuilder.buildCombinedPredicate(from: filterConfig)
-        
-        // 注意：位置信息过滤需要在后台线程中进行以避免主线程阻塞
-        
-        // 执行查询（不加载实际数据）
-        let fetchResult = PHAsset.fetchAssets(with: fetchOptions)
-        
-        AppLogger.shared.debug("查询到 \(fetchResult.count) 个符合条件的资源", category: .photo)
-        
-        // 处理需要后置过滤的条件
-        var finalCount = fetchResult.count
-        
-        
-        // 处理位置信息过滤（需要后置过滤）
-        if let locationFilter = filterConfig.locationFilter {
-            finalCount = try await countWithLocationFilter(from: fetchResult, locationFilter: locationFilter)
-        }
-        
-        return finalCount
-    }
-    
-    
-    /// 计算满足位置信息条件的照片数量（需要后置过滤）
-    private func countWithLocationFilter(from fetchResult: PHFetchResult<PHAsset>, locationFilter: LocationFilterType) async throws -> Int {
-        var count = 0
-        
-        // 由于PHAsset的location属性不支持在NSPredicate中直接使用，
-        // 我们需要遍历所有资产来检查位置信息
-        fetchResult.enumerateObjects { (asset, _, _) in
-            let hasLocation = asset.location != nil
-            
-            switch locationFilter {
-            case .withLocation:
-                if hasLocation {
-                    count += 1
-                }
-            case .withoutLocation:
-                if !hasLocation {
-                    count += 1
-                }
-            }
-        }
-        
-        AppLogger.shared.debug("位置过滤后剩余 \(count) 张照片", category: .photo)
-        return count
-    }
-    
-    /// 计算各个条件的照片数量
-    private func calculateIndividualCounts() {
-        // 计算所有内容类型的数量
-        calculateAllContentTypeCounts()
-        // 计算所有日期范围的数量
-        calculateAllDateRangeCounts()
-        // 计算所有时长的数量
-        calculateAllDurationCounts()
-    }
-    
-    /// 计算所有内容类型的照片数量
-    private func calculateAllContentTypeCounts() {
-        for contentType in ContentType.allCases {
-            Task {
-                // 在后台线程开始计算
-                await MainActor.run {
-                    contentTypeCounts[contentType] = .calculating
-                }
-                
-                do {
-                    // 在后台线程执行计算
-                    let count = try await performPhotoCountCalculation(filterConfig: FilterConfiguration(
-                        contentType: contentType,
-                        dateRange: nil,
-                        durationFilter: nil,
-                        excludeHidden: false,
-                        excludeFavorite: false
-                    ))
-                    // 在主线程更新UI
-                    await MainActor.run {
-                        contentTypeCounts[contentType] = .success(count)
-                    }
-                } catch {
-                    // 在主线程更新UI
-                    await MainActor.run {
-                        contentTypeCounts[contentType] = .error(error.localizedDescription)
-                    }
-                }
-            }
-        }
-    }
-    
-    /// 计算所有日期范围的照片数量
-    private func calculateAllDateRangeCounts() {
-        // 计算不限选项
-        Task {
-            // 在后台线程开始计算
-            await MainActor.run {
-                dateRangeCounts[nil] = .calculating
-            }
-            
-            do {
-                // 在后台线程执行计算
-                let count = try await performPhotoCountCalculation(filterConfig: FilterConfiguration(
-                        contentType: .all,
-                        dateRange: nil,
-                        durationFilter: nil,
-                        excludeHidden: false,
-                        excludeFavorite: false
-                ))
-                // 在主线程更新UI
-                await MainActor.run {
-                    dateRangeCounts[nil] = .success(count)
-                }
-            } catch {
-                // 在主线程更新UI
-                await MainActor.run {
-                    dateRangeCounts[nil] = .error(error.localizedDescription)
-                }
-            }
-        }
-        
-        // 计算每个日期范围选项
-        for dateRange in DateRangeType.allCases {
-            Task {
-                // 在后台线程开始计算
-                await MainActor.run {
-                    dateRangeCounts[dateRange] = .calculating
-                }
-                
-                do {
-                    // 在后台线程执行计算
-                    let count = try await performPhotoCountCalculation(filterConfig: FilterConfiguration(
-                        contentType: .all,
-                        dateRange: dateRange,
-                        durationFilter: nil,
-                        excludeHidden: false,
-                        excludeFavorite: false
-                    ))
-                    // 在主线程更新UI
-                    await MainActor.run {
-                        dateRangeCounts[dateRange] = .success(count)
-                    }
-                } catch {
-                    // 在主线程更新UI
-                    await MainActor.run {
-                        dateRangeCounts[dateRange] = .error(error.localizedDescription)
-                    }
-                }
-            }
-        }
-    }
-    
-    /// 计算所有时长的照片数量
-    private func calculateAllDurationCounts() {
-        // 计算不限选项
-        Task {
-            // 在后台线程开始计算
-            await MainActor.run {
-                durationCounts[nil] = .calculating
-            }
-            
-            do {
-                // 在后台线程执行计算
-                let count = try await performPhotoCountCalculation(filterConfig: FilterConfiguration(
-                        contentType: .all,
-                        dateRange: nil,
-                        durationFilter: nil,
-                        excludeHidden: false,
-                        excludeFavorite: false
-                ))
-                // 在主线程更新UI
-                await MainActor.run {
-                    durationCounts[nil] = .success(count)
-                }
-            } catch {
-                // 在主线程更新UI
-                await MainActor.run {
-                    durationCounts[nil] = .error(error.localizedDescription)
-                }
-            }
-        }
-        
-        // 计算每个时长选项
-        for duration in DurationFilterType.allCases {
-            Task {
-                // 在后台线程开始计算
-                await MainActor.run {
-                    durationCounts[duration] = .calculating
-                }
-                
-                do {
-                    // 在后台线程执行计算
-                    let count = try await performPhotoCountCalculation(filterConfig: FilterConfiguration(
-                        contentType: .all,
-                        dateRange: nil,
-                        durationFilter: duration,
-                        excludeHidden: false,
-                        excludeFavorite: false
-                    ))
-                    // 在主线程更新UI
-                    await MainActor.run {
-                        durationCounts[duration] = .success(count)
-                    }
-                } catch {
-                    // 在主线程更新UI
-                    await MainActor.run {
-                        durationCounts[duration] = .error(error.localizedDescription)
-                    }
-                }
-            }
-        }
-    }
-    
     /// 显示自动重置通知
     private func showAutoResetNotification(with actions: [FilterConfiguration.AutoResetAction]) {
         autoResetActions = actions
@@ -700,12 +385,6 @@ struct AdvancedFilterView: View {
         }
         
         AppLogger.shared.info("用户撤销自动修复", category: .ui)
-    }
-    
-    /// 取消组合条件数量计算
-    private func cancelCombinedFilterCountCalculation() {
-        countCalculationTask?.cancel()
-        countCalculationTask = nil
     }
 }
 
@@ -788,7 +467,7 @@ struct FilterOptionRow: View {
     let title: String
     let description: String
     let isSelected: Bool
-    let photoCount: PhotoCountResult?
+    let photoCount: Int?  // 改为可选Int类型
     let action: () -> Void
     
     var body: some View {
@@ -821,36 +500,8 @@ struct FilterOptionRow: View {
                 
                 Spacer()
                 
-                // 照片数量或选中标记
-                if let photoCount = photoCount {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        switch photoCount {
-                        case .calculating:
-                            HStack(spacing: 4) {
-                                ProgressView()
-                                    .scaleEffect(0.6)
-                                        Text(NSLocalizedString("photo.count.calculating_short", comment: ""))
-                                            .font(.caption2)
-                                            .foregroundColor(.blue)
-                            }
-                        case .success(let count):
-                            Text("\(count)" + NSLocalizedString("photo.count.photos_short", comment: ""))
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(.green)
-                        case .error:
-                            Text(NSLocalizedString("photo.count.unknown", comment: ""))
-                                .font(.caption)
-                                .foregroundColor(.red)
-                        }
-                        
-                        if isSelected {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.blue)
-                                .font(.system(size: 16))
-                        }
-                    }
-                } else if isSelected {
+                // 选中标记
+                if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.blue)
                         .font(.system(size: 22))

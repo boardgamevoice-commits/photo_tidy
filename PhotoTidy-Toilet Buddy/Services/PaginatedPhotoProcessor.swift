@@ -207,8 +207,22 @@ class PaginatedPhotoProcessor {
     }
 }
 
-// MARK: - PhotoCountError Extension
+// MARK: - Photo Count Error
+
+enum PhotoCountError: LocalizedError {
+    case cancelled
+    case calculationFailed(String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .cancelled:
+            return "操作被取消"
+        case .calculationFailed(let reason):
+            return "计算失败: \(reason)"
+        }
+    }
+}
 
 extension PhotoCountError {
-    static let cancelled = PhotoCountError.calculationFailed("操作被取消")
+    static let calculationError = PhotoCountError.calculationFailed("未知错误")
 }

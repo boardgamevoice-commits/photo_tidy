@@ -9,62 +9,6 @@ import SwiftUI
 import Photos
 import Combine
 
-/// 照片数量计算结果状态
-enum PhotoCountResult {
-    case calculating
-    case success(Int)
-    case error(String)
-    
-    var displayText: String {
-        switch self {
-        case .calculating:
-            return "计算中..."
-        case .success(let count):
-            return "\(count)"
-        case .error:
-            return "未知"
-        }
-    }
-    
-    var isCalculating: Bool {
-        if case .calculating = self {
-            return true
-        }
-        return false
-    }
-    
-    var isError: Bool {
-        if case .error = self {
-            return true
-        }
-        return false
-    }
-    
-    var count: Int? {
-        if case .success(let count) = self {
-            return count
-        }
-        return nil
-    }
-    
-    var errorMessage: String? {
-        if case .error(let message) = self {
-            return message
-        }
-        return nil
-    }
-    
-    /// 计算进度（0.0 到 1.0）
-    var progress: Double {
-        switch self {
-        case .calculating:
-            return 0.0
-        case .success, .error:
-            return 1.0
-        }
-    }
-}
-
 /// 会话设置视图 - 用户配置整理会话的界面
 struct SessionSetupView: View {
     @ObservedObject var viewModel: TidySessionViewModel
@@ -89,11 +33,6 @@ struct SessionSetupView: View {
     
     // 预加载防抖任务
     @State private var preloadDebounceTask: Task<Void, Error>?
-    
-    // 照片数量计算状态
-    @State private var photoCountResult: PhotoCountResult = .calculating
-    @State private var countCalculationTask: Task<Void, Never>?
-    @State private var calculationProgress: Double = 0.0
     
     // 预提取缓存状态
     @State private var lastPreloadConfig: FilterConfiguration?
@@ -139,8 +78,7 @@ struct SessionSetupView: View {
         }
         .onChange(of: filterConfig) { _ in
             saveUserPreferences()
-            restartPreloading() // 新增：配置变化时重新预加载
-            calculateTotalPhotoCount() // 新增：重新计算照片总数
+            restartPreloading() // 配置变化时重新预加载
         }
         .alert(L10n.Alert.hint, isPresented: $showingError) {
             Button(L10n.Button.confirm, role: .cancel) {
@@ -167,18 +105,12 @@ struct SessionSetupView: View {
                 startPreloading() // 预加载
             }
             
-            // 第四层：延迟执行的计算密集型操作（500ms后）
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                calculateTotalPhotoCount() // 照片数量计算
-            }
-            
             let duration = Date().timeIntervalSince(startTime)
             AppLogger.shared.performance("SessionSetupView onAppear 完成，耗时: \(String(format: "%.3f", duration))秒")
         }
         .onDisappear {
             stopAdStatusCheck()
-            stopPreloading() // 新增：停止预加载
-            cancelPhotoCountCalculation() // 新增：取消照片数量计算
+            stopPreloading() // 停止预加载
         }
         .onChange(of: viewModel.errorMessage) { newValue in
             showingError = newValue != nil
@@ -490,42 +422,6 @@ struct SessionSetupView: View {
                 Text(L10n.SessionSetup.photoCount)
                     .font(.system(size: isIPad ? 20 : 18, weight: .semibold))
                 Spacer()
-                
-                // 总数量显示
-                HStack(spacing: 4) {
-                    Text("(total:")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-            switch photoCountResult {
-            case .calculating:
-                HStack(spacing: 4) {
-                    Text(NSLocalizedString("photo.count.calculating", comment: ""))
-                        .font(.caption)
-                        .foregroundColor(.blue)
-                    
-                    // 进度条
-                    if calculationProgress > 0 {
-                        ProgressView(value: calculationProgress)
-                            .progressViewStyle(LinearProgressViewStyle(tint: .blue))
-                            .frame(width: 30)
-                    }
-                }
-            case .success(let count):
-                Text("\(count)")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.green)
-            case .error:
-                Text(NSLocalizedString("photo.count.unknown", comment: ""))
-                    .font(.caption)
-                    .foregroundColor(.red)
-            }
-                    
-                    Text(")")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
             }
             
             // 当前选中的数量显示
@@ -905,143 +801,6 @@ struct SessionSetupView: View {
         lastPreloadCount = 0
     }
     
-    // MARK: - Photo Count Calculation
-    
-    /// 计算满足过滤条件的照片总数
-    private func calculateTotalPhotoCount() {
-        AppLogger.shared.performance("开始照片数量计算")
-        
-        // 取消之前的计算任务
-        countCalculationTask?.cancel()
-        
-        countCalculationTask = Task {
-            // 先检查缓存，如果命中则立即返回
-            let cacheKey = PhotoCountCacheManager.generateCacheKey(from: filterConfig)
-            if let cachedCount = PhotoCountCacheManager.shared.getCachedCount(for: cacheKey) {
-                await MainActor.run {
-                    photoCountResult = .success(cachedCount)
-                    calculationProgress = 1.0
-                    AppLogger.shared.debug("使用缓存结果: \(cachedCount)张", category: .ui)
-                }
-                return
-            }
-            
-            // 使用异步权限检查，避免阻塞
-            let status = await PhotoService.shared.checkPermissionStatusAsync()
-            guard status == .authorized || status == .limited else {
-                await MainActor.run {
-                    photoCountResult = .error("权限不足")
-                    calculationProgress = 1.0
-                }
-                return
-            }
-            
-            // 在后台线程开始计算
-            await MainActor.run {
-                photoCountResult = .calculating
-                calculationProgress = 0.0
-            }
-            
-            do {
-                // 在后台线程执行计算
-                let count = try await performPhotoCountCalculation(filterConfig: filterConfig)
-                if !Task.isCancelled {
-                    // 在主线程更新UI
-                    await MainActor.run {
-                        photoCountResult = .success(count)
-                        calculationProgress = 1.0
-                        AppLogger.shared.debug("主页照片数量计算完成: \(count)张", category: .ui)
-                    }
-                }
-            } catch {
-                if !Task.isCancelled {
-                    // 在主线程更新UI
-                    await MainActor.run {
-                        photoCountResult = .error(error.localizedDescription)
-                        calculationProgress = 0.0
-                        AppLogger.shared.error("主页照片数量计算失败: \(error)", category: .ui)
-                    }
-                }
-            }
-        }
-    }
-    
-    /// 执行照片数量计算
-    private func performPhotoCountCalculation(filterConfig: FilterConfiguration) async throws -> Int {
-        // 检查权限
-        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
-        guard status == .authorized || status == .limited else {
-            throw PhotoCountError.permissionDenied
-        }
-        
-        // 生成缓存键
-        let cacheKey = PhotoCountCacheManager.generateCacheKey(from: filterConfig)
-        
-        // 尝试从缓存获取
-        if let cachedCount = PhotoCountCacheManager.shared.getCachedCount(for: cacheKey) {
-            AppLogger.shared.debug("使用缓存结果: \(cachedCount)张", category: .photo)
-            return cachedCount
-        }
-        
-        // 构建查询条件
-        let fetchOptions = PHFetchOptions()
-        fetchOptions.predicate = PredicateBuilder.buildCombinedPredicate(from: filterConfig)
-        
-        // 注意：位置信息过滤需要在后台线程中进行以避免主线程阻塞
-        
-        // 执行查询（不加载实际数据）
-        let fetchResult = PHAsset.fetchAssets(with: fetchOptions)
-        
-        AppLogger.shared.debug("查询到 \(fetchResult.count) 个符合条件的资源", category: .photo)
-        
-        // 处理需要后置过滤的条件
-        var finalCount = fetchResult.count
-        
-        
-        // 处理位置信息过滤（需要后置过滤）
-        if let locationFilter = filterConfig.locationFilter {
-            finalCount = try await countWithLocationFilterWithPagination(from: fetchResult, locationFilter: locationFilter)
-        }
-        
-        // 缓存结果
-        PhotoCountCacheManager.shared.cacheCount(finalCount, for: cacheKey)
-        
-        return finalCount
-    }
-    
-    
-    /// 计算满足位置信息条件的照片数量（需要后置过滤）- 使用分页处理
-    private func countWithLocationFilterWithPagination(from fetchResult: PHFetchResult<PHAsset>, locationFilter: LocationFilterType) async throws -> Int {
-        let processor = PaginatedPhotoProcessor(batchSize: 50)
-        
-        let count = try await processor.countAssets(
-            from: fetchResult,
-            condition: { asset in
-                let hasLocation = asset.location != nil
-                
-                switch locationFilter {
-                case .withLocation:
-                    return hasLocation
-                case .withoutLocation:
-                    return !hasLocation
-                }
-            },
-            progressCallback: { progress in
-                Task { @MainActor in
-                    self.calculationProgress = 0.5 + (progress * 0.5) // 位置过滤占50%进度
-                }
-            }
-        )
-        
-        AppLogger.shared.debug("位置过滤后剩余 \(count) 张照片", category: .photo)
-        return count
-    }
-    
-    /// 取消照片数量计算
-    private func cancelPhotoCountCalculation() {
-        countCalculationTask?.cancel()
-        countCalculationTask = nil
-    }
 }
 
 // MARK: - Supporting Views
@@ -1532,22 +1291,6 @@ enum DurationFilterType: String, Codable, CaseIterable, Identifiable {
         }
     }
 }
-
-/// 照片数量计算错误类型
-enum PhotoCountError: LocalizedError {
-    case permissionDenied
-    case calculationFailed(String)
-    
-    var errorDescription: String? {
-        switch self {
-        case .permissionDenied:
-            return NSLocalizedString("photo.count.permission_denied", comment: "")
-        case .calculationFailed(let reason):
-            return String(format: NSLocalizedString("photo.count.calculation_failed", comment: ""), reason)
-        }
-    }
-}
-
 
 /// 过滤配置（支持多维度组合）
 struct FilterConfiguration: Codable, Equatable {
