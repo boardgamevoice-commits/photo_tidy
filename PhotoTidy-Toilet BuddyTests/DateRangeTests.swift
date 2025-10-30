@@ -263,7 +263,7 @@ class DateRangeTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         
         let validation = config.validate()
         XCTAssertTrue(validation.isValid, "日期范围应该能与其他过滤组合")

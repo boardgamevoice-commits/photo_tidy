@@ -91,7 +91,7 @@ struct L10n {
         static let advanced = "filter.advanced".localized
         static let contentType = "filter.content_type".localized
         static let dateRange = "filter.date_range".localized
-        static let location = "filter.location".localized
+        // static let location = "filter.location".localized  // 位置过滤已移除
         static let duration = "filter.duration".localized
         static let otherOptions = "filter.other_options".localized
         static let excludeHidden = "filter.exclude_hidden".localized
@@ -104,11 +104,11 @@ struct L10n {
         static let logicAnd = "filter.logic_and".localized
         static let unlimited = "filter.unlimited".localized
         static let unlimitedTime = "filter.unlimited_time".localized
-        static let unlimitedLocation = "filter.unlimited_location".localized
+        // static let unlimitedLocation = "filter.unlimited_location".localized  // 位置过滤已移除
         static let unlimitedDuration = "filter.unlimited_duration".localized
         static let selectContentType = "filter.select_content_type".localized
         static let selectDateRange = "filter.select_date_range".localized
-        static let selectLocation = "filter.select_location".localized
+        // static let selectLocation = "filter.select_location".localized  // 位置过滤已移除
         static let selectDuration = "filter.select_duration".localized
     }
     

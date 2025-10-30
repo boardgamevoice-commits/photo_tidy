@@ -286,8 +286,6 @@ class TidySessionViewModel: ObservableObject {
         let fetchOptions = PHFetchOptions()
         fetchOptions.predicate = PredicateBuilder.buildCombinedPredicate(from: filterConfig)
         
-        // 注意：位置信息过滤需要在后台线程中进行以避免主线程阻塞
-        
         // 获取所有符合条件的资源
         let allAssets = PHAsset.fetchAssets(with: fetchOptions)
         

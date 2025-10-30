@@ -921,9 +921,9 @@ enum ContentFilterType: String, CaseIterable, Identifiable {
     case older1Year = "1 年前"
     case older2Years = "2 年前"
     
-    // 位置信息
-    case photosWithLocation = "含位置信息"
-    case photosWithoutLocation = "无位置信息"
+    // 位置信息（已移除）
+    // case photosWithLocation = "含位置信息"
+    // case photosWithoutLocation = "无位置信息"
     
     // 视频时长
     case shortVideos = "短视频 (<30秒)"
@@ -969,10 +969,11 @@ enum ContentFilterType: String, CaseIterable, Identifiable {
             return "clock.arrow.circlepath"
         case .older2Years:
             return "clock.badge.exclamationmark"
-        case .photosWithLocation:
-            return "location.fill"
-        case .photosWithoutLocation:
-            return "location.slash"
+        // 位置信息（已移除）
+        // case .photosWithLocation:
+        //     return "location.fill"
+        // case .photosWithoutLocation:
+        //     return "location.slash"
         case .shortVideos:
             return "film"
         case .longVideos:
@@ -1014,10 +1015,11 @@ enum ContentFilterType: String, CaseIterable, Identifiable {
             return "只选择 1 年前拍摄的照片和视频"
         case .older2Years:
             return "只选择 2 年前拍摄的照片和视频"
-        case .photosWithLocation:
-            return "只选择带有 GPS 位置信息的照片和视频"
-        case .photosWithoutLocation:
-            return "只选择不含位置信息的照片和视频"
+        // 位置信息（已移除）
+        // case .photosWithLocation:
+        //     return "只选择带有 GPS 位置信息的照片和视频"
+        // case .photosWithoutLocation:
+        //     return "只选择不含位置信息的照片和视频"
         case .shortVideos:
             return "只选择时长小于 30 秒的短视频"
         case .longVideos:
@@ -1052,9 +1054,10 @@ enum ContentFilterType: String, CaseIterable, Identifiable {
         case .recent7Days, .recent30Days, .thisYear, .lastYear, .older1Year, .older2Years:
             // 日期过滤通过 PhotoService 的特殊逻辑处理
             return []
-        case .photosWithLocation, .photosWithoutLocation:
-            // 位置过滤通过 PhotoService 的特殊逻辑处理
-            return []
+        // 位置信息（已移除）
+        // case .photosWithLocation, .photosWithoutLocation:
+        //     // 位置过滤通过 PhotoService 的特殊逻辑处理
+        //     return []
         case .shortVideos, .longVideos:
             // 时长过滤通过 PhotoService 的特殊逻辑处理
             return []
@@ -1116,17 +1119,17 @@ enum ContentFilterType: String, CaseIterable, Identifiable {
         }
     }
     
-    /// 判断是否需要位置过滤
-    var locationFilterType: LocationFilterType? {
-        switch self {
-        case .photosWithLocation:
-            return .withLocation
-        case .photosWithoutLocation:
-            return .withoutLocation
-        default:
-            return nil
-        }
-    }
+    /// 判断是否需要位置过滤（已移除）
+    // var locationFilterType: LocationFilterType? {
+    //     switch self {
+    //     case .photosWithLocation:
+    //         return .withLocation
+    //     case .photosWithoutLocation:
+    //         return .withoutLocation
+    //     default:
+    //         return nil
+    //     }
+    // }
     
     /// 获取视频时长过滤范围（秒）
     /// - Returns: (minDuration, maxDuration) 如果需要时长过滤，返回最小和最大时长；否则返回 nil
@@ -1146,10 +1149,10 @@ enum ContentFilterType: String, CaseIterable, Identifiable {
         return getDateFilter() != nil
     }
     
-    /// 判断是否需要位置过滤
-    var needsLocationFilter: Bool {
-        return locationFilterType != nil
-    }
+    /// 判断是否需要位置过滤（已移除）
+    // var needsLocationFilter: Bool {
+    //     return locationFilterType != nil
+    // }
     
     /// 判断是否需要时长过滤
     var needsDurationFilter: Bool {
@@ -1157,21 +1160,9 @@ enum ContentFilterType: String, CaseIterable, Identifiable {
     }
 }
 
-// MARK: - Location Filter Type
+// MARK: - Location Filter Type (已移除)
 
-enum LocationFilterType: String, Codable, CaseIterable, Identifiable {
-    case withLocation
-    case withoutLocation
-    
-    var id: String { rawValue }
-    
-    var localizedName: String {
-        switch self {
-        case .withLocation: return NSLocalizedString("location.with_location", comment: "")
-        case .withoutLocation: return NSLocalizedString("location.without_location", comment: "")
-        }
-    }
-}
+// LocationFilterType 枚举已删除（位置过滤功能已删除）
 
 // MARK: - New Filter Structure (Multi-select Support)
 
@@ -1267,7 +1258,7 @@ struct FilterConfiguration: Codable, Equatable {
     var contentType: ContentType = .all
     var dateRange: DateRangeType? = nil
     // durationFilter 已移除（不再支持视频）
-    var locationFilter: LocationFilterType? = nil
+    // locationFilter 已移除（位置过滤功能已删除）
     var excludeHidden: Bool = true
     var excludeFavorite: Bool = true
     
@@ -1284,10 +1275,7 @@ struct FilterConfiguration: Codable, Equatable {
         }
         
         // durationFilter 已移除（不再支持视频）
-        
-        if let locationFilter = locationFilter {
-            parts.append(locationFilter.localizedName)
-        }
+        // locationFilter 已移除（位置过滤功能已删除）
         
         if excludeHidden {
             parts.append(NSLocalizedString("filter.summary.exclude_hidden", comment: ""))

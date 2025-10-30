@@ -161,24 +161,19 @@ class LegacyCompatibilityTests: XCTestCase {
         }
     }
     
-    // MARK: - locationFilterType 测试
+    // MARK: - locationFilterType 测试（已移除）
     
     func testLocationFilterType_WithLocation() {
-        let filter = ContentFilterType.photosWithLocation
-        XCTAssertEqual(filter.locationFilterType, .withLocation)
+        // 位置过滤功能已删除，ContentFilterType.photosWithLocation 和 locationFilterType 已移除
+        // 此测试已移除
     }
     
     func testLocationFilterType_WithoutLocation() {
-        let filter = ContentFilterType.photosWithoutLocation
-        XCTAssertEqual(filter.locationFilterType, .withoutLocation)
+        // 位置过滤功能已删除，此测试已移除
     }
     
     func testLocationFilterType_ReturnsNilForNonLocationTypes() {
-        let nonLocationTypes: [ContentFilterType] = [.all, .screenshots, .videos]
-        
-        for type in nonLocationTypes {
-            XCTAssertNil(type.locationFilterType, "\(type.displayName) 不应该有位置过滤")
-        }
+        // 位置过滤功能已删除，此测试已移除
     }
     
     // MARK: - getDurationFilter() 测试
@@ -226,11 +221,8 @@ class LegacyCompatibilityTests: XCTestCase {
     }
     
     func testNeedsLocationFilter() {
-        let locationTypes: [ContentFilterType] = [.photosWithLocation, .photosWithoutLocation]
-        
-        for type in locationTypes {
-            XCTAssertTrue(type.needsLocationFilter, "\(type.displayName) 应该需要位置过滤")
-        }
+        // 位置过滤功能已删除，ContentFilterType.photosWithLocation/.photosWithoutLocation 和 needsLocationFilter 已移除
+        // 此测试已移除
     }
     
     func testNeedsDurationFilter() {

@@ -135,25 +135,9 @@ class PredicateBuilder {
         return predicates.isEmpty ? nil : predicates
     }
     
-    // MARK: - Location Predicates
+    // MARK: - Location Predicates (已移除)
     
-    /// 构建位置信息过滤 Predicate
-    /// 注意：PHAsset 的 location 属性不支持在 NSPredicate 中直接使用
-    /// 位置信息过滤需要在获取资产后手动进行
-    static func buildLocationPredicate(_ locationFilter: LocationFilterType?) -> NSPredicate? {
-        guard let locationFilter = locationFilter else { return nil }
-        
-        // 由于 PHAsset 的 location 属性不支持在 NSPredicate 中使用，
-        // 我们返回 nil，位置过滤将在获取资产后进行
-        switch locationFilter {
-        case .withLocation:
-            AppLogger.shared.debug("位置信息：含位置信息（将在后处理中过滤）", category: .photo)
-            return nil
-        case .withoutLocation:
-            AppLogger.shared.debug("位置信息：无位置信息（将在后处理中过滤）", category: .photo)
-            return nil
-        }
-    }
+    // 位置过滤功能已删除
     
     // MARK: - Duration Predicates (已移除视频支持)
     
@@ -175,10 +159,8 @@ class PredicateBuilder {
             predicates.append(contentsOf: datePredicates)
         }
         
-        // 维度 3: 位置信息
-        if let locationPredicate = buildLocationPredicate(filterConfig.locationFilter) {
-            predicates.append(locationPredicate)
-        }
+        // 维度 3: 位置信息（已移除）
+        // 位置过滤功能已删除
         
         // 维度 4: 视频时长（已移除视频支持）
         // 视频时长过滤已移除，无需处理

@@ -19,7 +19,7 @@ class FilterConfigurationTests: XCTestCase {
         
         XCTAssertEqual(config.contentType, .all, "默认应该选择所有媒体")
         XCTAssertNil(config.dateRange, "默认应该没有日期范围限制")
-        XCTAssertNil(config.locationFilter, "默认应该没有位置过滤")
+        // locationFilter 已移除（位置过滤功能已删除）
         // durationFilter 已移除（不再支持视频）
         XCTAssertTrue(config.excludeHidden, "默认应该排除隐藏照片")
         XCTAssertTrue(config.excludeFavorite, "默认应该排除收藏照片")
@@ -50,13 +50,13 @@ class FilterConfigurationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // locationFilter 已移除（位置过滤功能已删除）
         
         let summary = config.summary
         
         XCTAssertTrue(summary.contains("仅截图"), "摘要应该包含内容类型")
         XCTAssertTrue(summary.contains("最近 30 天"), "摘要应该包含日期范围")
-        XCTAssertTrue(summary.contains("含位置信息"), "摘要应该包含位置过滤")
+        // 位置过滤相关断言已移除
         XCTAssertTrue(summary.contains("且"), "摘要应该使用'且'连接多个条件")
     }
     
@@ -131,7 +131,7 @@ class FilterConfigurationTests: XCTestCase {
         var originalConfig = FilterConfiguration()
         originalConfig.contentType = .screenshots
         originalConfig.dateRange = .recent30Days
-        originalConfig.locationFilter = .withLocation
+        // originalConfig.locationFilter = .withLocation  // 位置过滤已移除
         // durationFilter 已移除（不再支持视频）
         originalConfig.excludeHidden = false
         originalConfig.excludeFavorite = true
@@ -147,8 +147,8 @@ class FilterConfigurationTests: XCTestCase {
         // 验证
         XCTAssertEqual(decodedConfig.contentType, originalConfig.contentType)
         XCTAssertEqual(decodedConfig.dateRange, originalConfig.dateRange)
-        XCTAssertEqual(decodedConfig.locationFilter, originalConfig.locationFilter)
-        XCTAssertEqual(decodedConfig.durationFilter, originalConfig.durationFilter)
+        // XCTAssertEqual(decodedConfig.locationFilter, originalConfig.locationFilter)  // 位置过滤已移除
+        // XCTAssertEqual(decodedConfig.durationFilter, originalConfig.durationFilter)  // 视频时长过滤已移除
         XCTAssertEqual(decodedConfig.excludeHidden, originalConfig.excludeHidden)
         XCTAssertEqual(decodedConfig.excludeFavorite, originalConfig.excludeFavorite)
     }
@@ -171,7 +171,7 @@ class FilterConfigurationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .hdrPhotos
         config.dateRange = .older1Year
-        config.locationFilter = .withoutLocation
+        // config.locationFilter = .withoutLocation  // 位置过滤已移除
         // durationFilter 已移除（不再支持视频）
         config.excludeHidden = true
         config.excludeFavorite = false
@@ -249,18 +249,11 @@ class FilterConfigurationTests: XCTestCase {
         }
     }
     
-    /// 测试所有位置过滤
+    /// 测试所有位置过滤（已移除）
     func testAllLocationFilters() {
-        let allFilters = LocationFilterType.allCases
-        
-        XCTAssertEqual(allFilters.count, 2, "应该有 2 种位置过滤")
-        
-        for filter in allFilters {
-            var config = FilterConfiguration()
-            config.locationFilter = filter
-            
-            XCTAssertTrue(config.summary.contains(filter.rawValue), "摘要应该包含位置过滤")
-        }
+        // 位置过滤功能已删除，此测试已移除
+        // let allFilters = LocationFilterType.allCases
+        // ...
     }
     
     /// 测试所有时长过滤
@@ -284,7 +277,7 @@ class FilterConfigurationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .slowMotionVideos
         config.dateRange = .older1Year
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         config.durationFilter = .longVideos
         config.excludeHidden = true
         config.excludeFavorite = true
@@ -293,7 +286,7 @@ class FilterConfigurationTests: XCTestCase {
         
         XCTAssertTrue(summary.contains("仅慢动作视频"), "应该包含内容类型")
         XCTAssertTrue(summary.contains("1 年前"), "应该包含日期范围")
-        XCTAssertTrue(summary.contains("含位置信息"), "应该包含位置过滤")
+        // XCTAssertTrue(summary.contains("含位置信息"), "应该包含位置过滤")  // 位置过滤已移除
         XCTAssertTrue(summary.contains("长视频"), "应该包含时长过滤")
         XCTAssertTrue(summary.contains("排除隐藏"), "应该包含排除隐藏")
         XCTAssertTrue(summary.contains("排除收藏"), "应该包含排除收藏")
@@ -384,21 +377,11 @@ class FilterConfigurationTests: XCTestCase {
         }
     }
     
-    /// 测试视频类型与位置过滤的建议
+    /// 测试视频类型与位置过滤的建议（已移除）
     func testVideoTypesWithLocationSuggestion() {
-        let videoTypes: [ContentType] = [.videos, .slowMotionVideos, .timelapseVideos]
-        
-        for videoType in videoTypes {
-            var config = FilterConfiguration()
-            config.contentType = videoType
-            config.locationFilter = .withLocation
-            
-            let validation = config.validate()
-            
-            // 这不是错误，但应该有建议
-            XCTAssertFalse(validation.suggestions.isEmpty, "\(videoType.rawValue) + 位置应该有建议")
-            XCTAssertTrue(validation.suggestions.first?.contains("视频的位置信息") ?? false)
-        }
+        // 位置过滤功能已删除，此测试已移除
+        // let videoTypes: [ContentType] = [.videos, .slowMotionVideos, .timelapseVideos]
+        // ...
     }
     
     // MARK: - 各种组合测试
@@ -419,23 +402,22 @@ class FilterConfigurationTests: XCTestCase {
         XCTAssertTrue(summary.contains("排除收藏"))
     }
     
-    /// 测试典型场景 2：清理带GPS的旧慢动作视频
+    /// 测试典型场景 2：清理带GPS的旧慢动作视频（已移除位置过滤）
     func testScenario_CleanOldSlowMotionWithGPS() {
         var config = FilterConfiguration()
         config.contentType = .slowMotionVideos
         config.dateRange = .older1Year
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         config.excludeFavorite = true
         
         let validation = config.validate()
-        // 应该有位置信息的建议，但仍然有效
         XCTAssertTrue(validation.isValid, "配置应该有效")
-        XCTAssertFalse(validation.suggestions.isEmpty, "应该有位置信息建议")
+        // XCTAssertFalse(validation.suggestions.isEmpty, "应该有位置信息建议")  // 位置过滤已移除
         
         let summary = config.summary
         XCTAssertTrue(summary.contains("仅慢动作视频"))
         XCTAssertTrue(summary.contains("1 年前"))
-        XCTAssertTrue(summary.contains("含位置信息"))
+        // XCTAssertTrue(summary.contains("含位置信息"))  // 位置过滤已移除
     }
     
     /// 测试典型场景 3：清理最近的短视频
@@ -487,11 +469,11 @@ class FilterConfigurationTests: XCTestCase {
         }
     }
     
-    /// 测试 LocationFilterType 枚举的完整性
+    /// 测试 LocationFilterType 枚举的完整性（已移除）
     func testLocationFilterTypeEnumCompleteness() {
-        XCTAssertEqual(LocationFilterType.allCases.count, 2, "LocationFilterType 应该有 2 个选项")
-        XCTAssertTrue(LocationFilterType.allCases.contains(.withLocation))
-        XCTAssertTrue(LocationFilterType.allCases.contains(.withoutLocation))
+        // 位置过滤功能已删除，LocationFilterType 枚举已移除
+        // XCTAssertEqual(LocationFilterType.allCases.count, 2, "LocationFilterType 应该有 2 个选项")
+        // ...
     }
     
     /// 测试 DurationFilterType 枚举的完整性
@@ -519,7 +501,7 @@ class FilterConfigurationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         
         let summary = config.summary
         
@@ -535,7 +517,7 @@ class FilterConfigurationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .slowMotionVideos
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         config.durationFilter = .longVideos
         config.excludeHidden = true
         config.excludeFavorite = true
@@ -581,14 +563,14 @@ class FilterConfigurationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         
         // 重置为默认值
         config = FilterConfiguration()
         
         XCTAssertEqual(config.contentType, .all)
         XCTAssertNil(config.dateRange)
-        XCTAssertNil(config.locationFilter)
+        // XCTAssertNil(config.locationFilter)  // 位置过滤已移除
     }
     
     // MARK: - 特殊场景测试
@@ -639,7 +621,7 @@ class FilterConfigurationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         config.durationFilter = .shortVideos  // 故意设置矛盾配置
         
         measure {
@@ -654,7 +636,7 @@ class FilterConfigurationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .slowMotionVideos
         config.dateRange = .older1Year
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         config.durationFilter = .longVideos
         
         measure {
@@ -669,7 +651,7 @@ class FilterConfigurationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         
         measure {
             for _ in 0..<1000 {
@@ -685,7 +667,7 @@ class FilterConfigurationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         config.durationFilter = nil  // 不应该影响其他维度
         
         let summary = config.summary
@@ -693,7 +675,7 @@ class FilterConfigurationTests: XCTestCase {
         // 所有设置的维度都应该出现在摘要中
         XCTAssertTrue(summary.contains("仅截图"), "内容类型不应该丢失")
         XCTAssertTrue(summary.contains("最近 30 天"), "日期范围不应该丢失")
-        XCTAssertTrue(summary.contains("含位置信息"), "位置过滤不应该丢失")
+        // XCTAssertTrue(summary.contains("含位置信息"), "位置过滤不应该丢失")  // 位置过滤已移除
     }
     
     /// 测试修复后的连拍识别

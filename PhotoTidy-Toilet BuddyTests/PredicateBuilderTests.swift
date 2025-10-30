@@ -93,41 +93,19 @@ final class PredicateBuilderTests: XCTestCase {
         XCTAssertEqual(predicates?.count, 2, "去年应该有2个predicate：开始日期和结束日期")
     }
     
-    // MARK: - Location Tests
+    // MARK: - Location Tests (已移除)
     
     func testBuildLocationPredicate_WithLocation() {
-        // Given
-        let locationFilter = LocationFilterType.withLocation
-        
-        // When
-        let predicate = PredicateBuilder.buildLocationPredicate(locationFilter)
-        
-        // Then
-        XCTAssertNotNil(predicate)
-        XCTAssertTrue(predicate?.predicateFormat.contains("location") ?? false)
+        // 位置过滤功能已删除，此测试已移除
+        // LocationFilterType 和 buildLocationPredicate 方法已删除
     }
     
     func testBuildLocationPredicate_WithoutLocation() {
-        // Given
-        let locationFilter = LocationFilterType.withoutLocation
-        
-        // When
-        let predicate = PredicateBuilder.buildLocationPredicate(locationFilter)
-        
-        // Then
-        XCTAssertNotNil(predicate)
-        XCTAssertTrue(predicate?.predicateFormat.contains("location") ?? false)
+        // 位置过滤功能已删除，此测试已移除
     }
     
     func testBuildLocationPredicate_Nil() {
-        // Given
-        let locationFilter: LocationFilterType? = nil
-        
-        // When
-        let predicate = PredicateBuilder.buildLocationPredicate(locationFilter)
-        
-        // Then
-        XCTAssertNil(predicate, "nil输入应该返回nil")
+        // 位置过滤功能已删除，此测试已移除
     }
     
     // MARK: - Duration Tests (已移除视频支持)
@@ -175,7 +153,7 @@ final class PredicateBuilderTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent7Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         config.excludeHidden = true
         config.excludeFavorite = true
         
@@ -212,7 +190,7 @@ final class PredicateBuilderTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .livePhotos
         config.dateRange = .thisYear
-        config.locationFilter = .withoutLocation
+        // config.locationFilter = .withoutLocation  // 位置过滤已移除
         // durationFilter 已移除（不再支持视频）
         config.excludeHidden = true
         config.excludeFavorite = true

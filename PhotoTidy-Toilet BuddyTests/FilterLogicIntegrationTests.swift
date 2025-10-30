@@ -14,12 +14,12 @@ class FilterLogicIntegrationTests: XCTestCase {
     
     // MARK: - 多维度组合测试
     
-    /// 测试场景：清理旧的带GPS的截图
+    /// 测试场景：清理旧的带GPS的截图（已移除位置过滤）
     func testScenario_OldScreenshotsWithLocation() {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .older1Year
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         config.excludeFavorite = true
         
         // 验证配置有效性
@@ -31,12 +31,12 @@ class FilterLogicIntegrationTests: XCTestCase {
         let summary = config.summary
         XCTAssertTrue(summary.contains("仅截图"), "应该包含内容类型")
         XCTAssertTrue(summary.contains("1 年前"), "应该包含日期范围")
-        XCTAssertTrue(summary.contains("含位置信息"), "应该包含位置过滤")
+        // XCTAssertTrue(summary.contains("含位置信息"), "应该包含位置过滤")  // 位置过滤已移除
         XCTAssertTrue(summary.contains("排除收藏"), "应该包含排除选项")
         
-        // 验证 AND 逻辑
+        // 验证 AND 逻辑（现在是 3 个条件，不再是 4 个）
         let parts = summary.components(separatedBy: " 且 ")
-        XCTAssertEqual(parts.count, 4, "应该有 4 个条件通过'且'连接")
+        XCTAssertGreaterThanOrEqual(parts.count, 3, "应该有至少 3 个条件通过'且'连接")
     }
     
     /// 测试场景：清理最近的慢动作长视频
@@ -50,10 +50,7 @@ class FilterLogicIntegrationTests: XCTestCase {
         let validation = config.validate()
         XCTAssertTrue(validation.isValid, "配置应该有效")
         
-        // 可能有位置信息建议（视频）
-        if config.locationFilter == .withLocation {
-            XCTAssertFalse(validation.suggestions.isEmpty)
-        }
+        // 位置过滤已移除，不再检查位置相关建议
     }
     
     
@@ -76,7 +73,7 @@ class FilterLogicIntegrationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         config.durationFilter = nil  // 注意：这里故意不设置
         
         let summary = config.summary
@@ -84,7 +81,7 @@ class FilterLogicIntegrationTests: XCTestCase {
         // 验证所有设置的维度都出现
         XCTAssertTrue(summary.contains("仅截图"), "内容类型不应该丢失")
         XCTAssertTrue(summary.contains("最近 30 天"), "日期范围不应该丢失")
-        XCTAssertTrue(summary.contains("含位置信息"), "位置过滤不应该丢失")
+        // XCTAssertTrue(summary.contains("含位置信息"), "位置过滤不应该丢失")  // 位置过滤已移除
         
         // 验证没设置的维度不出现
         XCTAssertFalse(summary.contains("短视频"), "未设置的时长不应该出现")
@@ -111,13 +108,13 @@ class FilterLogicIntegrationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent7Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         
         let summary = config.summary
         
         XCTAssertTrue(summary.contains("仅截图"), "内容类型不应该被日期覆盖")
         XCTAssertTrue(summary.contains("最近 7 天"), "日期应该存在")
-        XCTAssertTrue(summary.contains("含位置信息"), "位置不应该被日期覆盖")
+        // XCTAssertTrue(summary.contains("含位置信息"), "位置不应该被日期覆盖")  // 位置过滤已移除
     }
     
     // MARK: - 矛盾配置集成测试
@@ -157,13 +154,13 @@ class FilterLogicIntegrationTests: XCTestCase {
         
         for contentType in ContentType.allCases {
             for dateRange in [nil] + DateRangeType.allCases.map { Optional($0) } {
-                for locationFilter in [nil] + LocationFilterType.allCases.map { Optional($0) } {
-                    for durationFilter in [nil] + DurationFilterType.allCases.map { Optional($0) } {
-                        var config = FilterConfiguration()
-                        config.contentType = contentType
-                        config.dateRange = dateRange
-                        config.locationFilter = locationFilter
-                        config.durationFilter = durationFilter
+                // for locationFilter in [nil] + LocationFilterType.allCases.map { Optional($0) } {  // 位置过滤已移除
+                for durationFilter in [nil] + DurationFilterType.allCases.map { Optional($0) } {
+                    var config = FilterConfiguration()
+                    config.contentType = contentType
+                    config.dateRange = dateRange
+                    // config.locationFilter = locationFilter  // 位置过滤已移除
+                    config.durationFilter = durationFilter
                         
                         let validation = config.validate()
                         
@@ -216,7 +213,7 @@ class FilterLogicIntegrationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         config.excludeFavorite = true
         
         let summary = config.summary
@@ -236,7 +233,7 @@ class FilterLogicIntegrationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         config.excludeHidden = true
         config.excludeFavorite = true
         
@@ -245,8 +242,8 @@ class FilterLogicIntegrationTests: XCTestCase {
         // 验证使用 "且" 连接（表示 AND）
         XCTAssertTrue(summary.contains("且"), "应该使用'且'表示 AND 逻辑")
         
-        // 验证所有条件都在摘要中
-        let conditions = ["仅截图", "最近 30 天", "含位置信息", "排除隐藏", "排除收藏"]
+        // 验证所有条件都在摘要中（位置过滤已移除）
+        let conditions = ["仅截图", "最近 30 天", "排除隐藏", "排除收藏"]
         for condition in conditions {
             XCTAssertTrue(summary.contains(condition), "摘要应该包含 \(condition)")
         }
@@ -263,11 +260,11 @@ class FilterLogicIntegrationTests: XCTestCase {
         config2.contentType = .screenshots
         config2.dateRange = .recent30Days
         
-        // 配置 3：内容类型 + 日期 + 位置
+        // 配置 3：内容类型 + 日期（位置过滤已移除）
         var config3 = FilterConfiguration()
         config3.contentType = .screenshots
         config3.dateRange = .recent30Days
-        config3.locationFilter = .withLocation
+        // config3.locationFilter = .withLocation  // 位置过滤已移除
         
         // 摘要应该逐步变长（条件更多）
         let parts1 = config1.summary.components(separatedBy: " 且 ")
@@ -286,14 +283,14 @@ class FilterLogicIntegrationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         
         // 修改内容类型
         config.contentType = .videos
         
         // 其他维度应该保持不变
         XCTAssertEqual(config.dateRange, .recent30Days, "修改内容类型不应该影响日期")
-        XCTAssertEqual(config.locationFilter, .withLocation, "修改内容类型不应该影响位置")
+        // XCTAssertEqual(config.locationFilter, .withLocation, "修改内容类型不应该影响位置")  // 位置过滤已移除
     }
     
     /// 测试日期维度可以独立设置和清除
@@ -319,7 +316,7 @@ class FilterLogicIntegrationTests: XCTestCase {
         var originalConfig = FilterConfiguration()
         originalConfig.contentType = .slowMotionVideos
         originalConfig.dateRange = .older1Year
-        originalConfig.locationFilter = .withLocation
+        // originalConfig.locationFilter = .withLocation  // 位置过滤已移除
         originalConfig.durationFilter = .longVideos
         originalConfig.excludeHidden = false
         originalConfig.excludeFavorite = true
@@ -333,7 +330,7 @@ class FilterLogicIntegrationTests: XCTestCase {
         // 验证所有字段都正确还原
         XCTAssertEqual(decodedConfig.contentType, originalConfig.contentType)
         XCTAssertEqual(decodedConfig.dateRange, originalConfig.dateRange)
-        XCTAssertEqual(decodedConfig.locationFilter, originalConfig.locationFilter)
+        // XCTAssertEqual(decodedConfig.locationFilter, originalConfig.locationFilter)  // 位置过滤已移除
         XCTAssertEqual(decodedConfig.durationFilter, originalConfig.durationFilter)
         XCTAssertEqual(decodedConfig.excludeHidden, originalConfig.excludeHidden)
         XCTAssertEqual(decodedConfig.excludeFavorite, originalConfig.excludeFavorite)
@@ -379,7 +376,7 @@ class FilterLogicIntegrationTests: XCTestCase {
                 var c = FilterConfiguration()
                 c.contentType = .screenshots
                 c.dateRange = .recent30Days
-                c.locationFilter = .withLocation
+                // c.locationFilter = .withLocation  // 位置过滤已移除
                 return c
             }()
         ]
@@ -426,7 +423,7 @@ class FilterLogicIntegrationTests: XCTestCase {
     func testNilValues_HandledCorrectly() {
         var config = FilterConfiguration()
         config.dateRange = nil
-        config.locationFilter = nil
+        // config.locationFilter = nil  // 位置过滤已移除
         config.durationFilter = nil
         
         let summary = config.summary
@@ -489,12 +486,9 @@ class FilterLogicIntegrationTests: XCTestCase {
         XCTAssertTrue(config.validate().isValid)
         XCTAssertTrue(config.summary.contains("最近 30 天"))
         
-        // 步骤 3：添加位置过滤
-        config.locationFilter = .withLocation
-        XCTAssertTrue(config.validate().isValid)
-        XCTAssertTrue(config.summary.contains("含位置信息"))
+        // 步骤 3：位置过滤已移除
         
-        // 步骤 4：设置排除选项
+        // 步骤 4：设置排除选项（原步骤 4）
         config.excludeFavorite = true
         XCTAssertTrue(config.validate().isValid)
         XCTAssertTrue(config.summary.contains("排除收藏"))
@@ -503,7 +497,7 @@ class FilterLogicIntegrationTests: XCTestCase {
         let finalSummary = config.summary
         XCTAssertTrue(finalSummary.contains("仅截图"))
         XCTAssertTrue(finalSummary.contains("最近 30 天"))
-        XCTAssertTrue(finalSummary.contains("含位置信息"))
+        // XCTAssertTrue(finalSummary.contains("含位置信息"))  // 位置过滤已移除
         XCTAssertTrue(finalSummary.contains("排除收藏"))
     }
     
@@ -533,7 +527,7 @@ class FilterLogicIntegrationTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         
         // 清除日期
         config.dateRange = nil
@@ -541,7 +535,7 @@ class FilterLogicIntegrationTests: XCTestCase {
         let summary = config.summary
         XCTAssertFalse(summary.contains("最近 30 天"), "清除后不应该包含日期")
         XCTAssertTrue(summary.contains("仅截图"), "其他条件应该保持")
-        XCTAssertTrue(summary.contains("含位置信息"), "其他条件应该保持")
+        // XCTAssertTrue(summary.contains("含位置信息"), "其他条件应该保持")  // 位置过滤已移除
     }
     
     // MARK: - 错误恢复测试

@@ -93,24 +93,19 @@ class ContentTypeTests: XCTestCase {
         }
     }
     
-    // MARK: - LocationFilterType 测试
+    // MARK: - LocationFilterType 测试（已移除）
     
     func testLocationFilterType_AllCasesCount() {
-        let allFilters = LocationFilterType.allCases
-        XCTAssertEqual(allFilters.count, 2, "应该有 2 种位置过滤")
+        // 位置过滤功能已删除，LocationFilterType 枚举已移除
+        // 此测试已移除
     }
     
     func testLocationFilterType_WithAndWithout() {
-        XCTAssertTrue(LocationFilterType.allCases.contains(.withLocation))
-        XCTAssertTrue(LocationFilterType.allCases.contains(.withoutLocation))
+        // 位置过滤功能已删除，此测试已移除
     }
     
     func testLocationFilterType_Codable() throws {
-        for filter in LocationFilterType.allCases {
-            let data = try JSONEncoder().encode(filter)
-            let decoded = try JSONDecoder().decode(LocationFilterType.self, from: data)
-            XCTAssertEqual(decoded, filter, "\(filter.rawValue) 应该能正确序列化")
-        }
+        // 位置过滤功能已删除，此测试已移除
     }
     
     // MARK: - DurationFilterType 测试
@@ -142,15 +137,14 @@ class ContentTypeTests: XCTestCase {
     // MARK: - 组合逻辑测试
     
     func testContentTypeWithLocation_AllCombinations() {
+        // 位置过滤功能已删除，此测试已移除
+        // 现在只测试内容类型和日期范围的组合
         for contentType in ContentType.allCases {
-            for locationFilter in LocationFilterType.allCases {
-                var config = FilterConfiguration()
-                config.contentType = contentType
-                config.locationFilter = locationFilter
-                
-                // 应该都能生成有效配置
-                XCTAssertNotNil(config.summary, "\(contentType.rawValue) + \(locationFilter.rawValue) 应该有效")
-            }
+            var config = FilterConfiguration()
+            config.contentType = contentType
+            
+            // 应该都能生成有效配置
+            XCTAssertNotNil(config.summary, "\(contentType.rawValue) 应该有效")
         }
     }
     
@@ -185,18 +179,8 @@ class ContentTypeTests: XCTestCase {
     }
     
     func testVideoTypes_WithLocationHasSuggestion() {
-        let videoTypes: [ContentType] = [.videos, .slowMotionVideos, .timelapseVideos]
-        
-        for videoType in videoTypes {
-            var config = FilterConfiguration()
-            config.contentType = videoType
-            config.locationFilter = .withLocation
-            
-            let validation = config.validate()
-            
-            XCTAssertFalse(validation.suggestions.isEmpty, "\(videoType.rawValue) + 位置应该有建议")
-            XCTAssertTrue(validation.suggestions.joined().contains("视频的位置信息"))
-        }
+        // 位置过滤功能已删除，此测试已移除
+        // 视频类型相关的测试已更新，不再测试位置过滤
     }
     
     // MARK: - 枚举 Identifiable 测试
@@ -214,9 +198,8 @@ class ContentTypeTests: XCTestCase {
     }
     
     func testLocationFilterType_Identifiable() {
-        for filter in LocationFilterType.allCases {
-            XCTAssertEqual(filter.id, filter.rawValue, "ID 应该等于 rawValue")
-        }
+        // 位置过滤功能已删除，LocationFilterType 枚举已移除
+        // 此测试已移除
     }
     
     func testDurationFilterType_Identifiable() {

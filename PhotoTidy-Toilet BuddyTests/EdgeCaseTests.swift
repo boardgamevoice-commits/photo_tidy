@@ -25,7 +25,7 @@ class EdgeCaseTests: XCTestCase {
     func testNilOptionalFields() {
         var config = FilterConfiguration()
         config.dateRange = nil
-        config.locationFilter = nil
+        // config.locationFilter = nil  // 位置过滤已移除
         config.durationFilter = nil
         
         // 不应该崩溃
@@ -36,7 +36,7 @@ class EdgeCaseTests: XCTestCase {
         let summary = config.summary
         XCTAssertFalse(summary.lowercased().contains("nil"))
         XCTAssertFalse(summary.lowercased().contains("null"))
-        XCTAssertFalse(summary.contains("无"))  // 除非是"无位置信息"
+        // XCTAssertFalse(summary.contains("无"))  // 位置过滤已移除
     }
     
     // MARK: - 极端值测试
@@ -145,26 +145,17 @@ class EdgeCaseTests: XCTestCase {
         // 可以考虑添加警告
     }
     
-    // MARK: - 位置信息特殊场景
+    // MARK: - 位置信息特殊场景（已移除）
     
     func testLocation_WithAllContentTypes() {
+        // 位置过滤功能已删除，LocationFilterType 枚举已移除
+        // 此测试已更新为只测试内容类型
         for contentType in ContentType.allCases {
-            for locationFilter in LocationFilterType.allCases {
-                var config = FilterConfiguration()
-                config.contentType = contentType
-                config.locationFilter = locationFilter
-                
-                let validation = config.validate()
-                
-                // 视频 + 位置应该有建议
-                let videoTypes: [ContentType] = [.videos, .slowMotionVideos, .timelapseVideos]
-                if videoTypes.contains(contentType) && locationFilter == .withLocation {
-                    XCTAssertFalse(validation.suggestions.isEmpty)
-                } else {
-                    // 其他组合应该有效且可能没有建议
-                    XCTAssertTrue(validation.isValid || !validation.suggestions.isEmpty)
-                }
-            }
+            var config = FilterConfiguration()
+            config.contentType = contentType
+            
+            let validation = config.validate()
+            XCTAssertTrue(validation.isValid, "\(contentType.rawValue) 应该有效")
         }
     }
     
@@ -263,28 +254,28 @@ class EdgeCaseTests: XCTestCase {
     func testSerialization_AllNilOptionals() throws {
         var config = FilterConfiguration()
         config.dateRange = nil
-        config.locationFilter = nil
+        // config.locationFilter = nil  // 位置过滤已移除
         config.durationFilter = nil
         
         let data = try JSONEncoder().encode(config)
         let decoded = try JSONDecoder().decode(FilterConfiguration.self, from: data)
         
         XCTAssertNil(decoded.dateRange)
-        XCTAssertNil(decoded.locationFilter)
+        // XCTAssertNil(decoded.locationFilter)  // 位置过滤已移除
         XCTAssertNil(decoded.durationFilter)
     }
     
     func testSerialization_AllSetOptionals() throws {
         var config = FilterConfiguration()
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         config.durationFilter = .shortVideos
         
         let data = try JSONEncoder().encode(config)
         let decoded = try JSONDecoder().decode(FilterConfiguration.self, from: data)
         
         XCTAssertEqual(decoded.dateRange, .recent30Days)
-        XCTAssertEqual(decoded.locationFilter, .withLocation)
+        // XCTAssertEqual(decoded.locationFilter, .withLocation)  // 位置过滤已移除
         XCTAssertEqual(decoded.durationFilter, .shortVideos)
     }
     
@@ -327,7 +318,7 @@ class EdgeCaseTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         
         measure {
             for _ in 0..<10000 {
@@ -373,7 +364,7 @@ class EdgeCaseTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .screenshots
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         
         let expectation = XCTestExpectation(description: "并发生成摘要")
         expectation.expectedFulfillmentCount = 100
@@ -431,7 +422,7 @@ class EdgeCaseTests: XCTestCase {
         var config = FilterConfiguration()
         config.contentType = .slowMotionVideos  // 最长的类型名
         config.dateRange = .recent30Days
-        config.locationFilter = .withLocation
+        // config.locationFilter = .withLocation  // 位置过滤已移除
         config.durationFilter = .longVideos
         config.excludeHidden = true
         config.excludeFavorite = true
@@ -481,7 +472,7 @@ class EdgeCaseTests: XCTestCase {
         
         XCTAssertEqual(config.contentType, .all)
         XCTAssertNil(config.dateRange)
-        XCTAssertNil(config.locationFilter)
+        // XCTAssertNil(config.locationFilter)  // 位置过滤已移除
         XCTAssertNil(config.durationFilter)
         XCTAssertTrue(config.excludeHidden)
         XCTAssertTrue(config.excludeFavorite)
@@ -577,7 +568,7 @@ class EdgeCaseTests: XCTestCase {
             for i in 0..<1000 {
                 config.contentType = i % 2 == 0 ? .screenshots : .videos
                 config.dateRange = i % 3 == 0 ? .recent30Days : nil
-                config.locationFilter = i % 5 == 0 ? .withLocation : nil
+                // config.locationFilter = i % 5 == 0 ? .withLocation : nil  // 位置过滤已移除
             }
         }
     }
